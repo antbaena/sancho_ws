@@ -29,6 +29,7 @@ amcl:
     initial_cov_aa: 0.06853
 
 #-------------------------------------------------
+# (BT) Behaviour Tree
 # Selects and runs the behaviour-tree for navigating
 #-------------------------------------------------
 bt_navigator:
