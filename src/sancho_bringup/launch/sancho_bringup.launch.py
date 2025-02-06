@@ -1,18 +1,18 @@
 import os
 from launch import LaunchDescription
 from launch.actions import IncludeLaunchDescription
-from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.launch_description_sources import PythonLaunchDescriptionSource, AnyLaunchDescriptionSource
 from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
 
 def generate_launch_description():
-    ranger_bringup_path = get_package_share_directory('sancho_bringup')
+    ranger_bringup_path = get_package_share_directory('ranger_bringup')
 
     # Cargar URDF desde sancho_description
     urdf_file_path = os.path.join(
         get_package_share_directory('sancho_description'),
         'urdf',
-        'sancho.urdf'
+        'sancho_ranger.urdf'
     )
 
     # Lanzar LIDAR (ejemplo con Hokuyo)
@@ -41,11 +41,10 @@ def generate_launch_description():
         ),
 
         # Incluir el launch de la base móvil
-        IncludeLaunchDescription(
-            PythonLaunchDescriptionSource(
-                os.path.join(ranger_bringup_path, 'launch', 'ranger_mini_v2.launch.xml')
-            )
+         IncludeLaunchDescription(
+            AnyLaunchDescriptionSource(os.path.join(ranger_bringup_path, 'launch', 'ranger_mini_v2.launch.xml'))
         ),
+
 
         # Iniciar sensores (LiDAR, cámaras, etc.)
         hokuyo_launch,
