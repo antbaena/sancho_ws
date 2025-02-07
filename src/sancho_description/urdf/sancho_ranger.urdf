@@ -234,7 +234,7 @@
 
   <joint name="base_to_laser_front" type="fixed">
     <!-- Ajusta si necesitas mover el láser frontal en X/Y/Z -->
-    <origin xyz="0.31 0.19 0.04" rpy="0 0 -0.785398"/>
+    <origin xyz="0.31 -0.19 0.04" rpy="0 0 -0.785398"/>
     <parent link="base_link"/>
     <child link="laser_front"/>
   </joint>
@@ -269,7 +269,7 @@
 
   <joint name="base_to_laser_back" type="fixed">
     <!-- Ubicación en la parte trasera (eje X negativo) -->
-    <origin xyz="-0.31 -0.19 0.04" rpy="0 0 2.28761"/>
+    <origin xyz="-0.31 0.19 0.04" rpy="0 0 2.28761"/>
     <parent link="base_link"/>
     <child link="laser_back"/>
   </joint>
