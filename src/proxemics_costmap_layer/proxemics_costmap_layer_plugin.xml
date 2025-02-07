@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<library path="lib/libproxemics_costmap_layer">
+  <class name="proxemics_costmap_layer::ProxemicsLayer"
+         type="proxemics_costmap_layer::ProxemicsLayer"
+         base_class_type="nav2_costmap_2d::Layer">
+    <description>
+      Proxemics costmap layer that creates an ellipse around a detected person.
+    </description>
+  </class>
+</library>
