@@ -20,8 +20,16 @@ def generate_launch_description():
         name='skeleton_3d_node',
         output='screen'
     )
+    
+    person_pose_publisher_node = Node(
+        package='sancho_perception',
+        executable='person_pose_publisher_node',
+        name='person_pose_publisher_node',
+        output='screen'
+    )
 
     return LaunchDescription([
         skeleton_detection_node,
-        skeleton_3d_node
+        skeleton_3d_node,
+        person_pose_publisher_node
     ])

@@ -39,7 +39,7 @@ def generate_launch_description():
             executable='planner_server',
             name='planner_server',
            output='screen',
-            prefix="xterm -hold -e",
+            # prefix="xterm -hold -e",
             emulate_tty=True,
             parameters=[nav2_params_path]
         ),

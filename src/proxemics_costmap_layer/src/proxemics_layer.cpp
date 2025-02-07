@@ -14,15 +14,30 @@ namespace proxemics_costmap_layer
 class ProxemicsLayer : public nav2_costmap_2d::CostmapLayer
 {
 public:
-  ProxemicsLayer() {}
+  ProxemicsLayer() = default;
 
-  // Se llama cuando se inicializa la capa
+  // Se llama al inicializar la capa
   virtual void onInitialize() override
   {
-    RCLCPP_INFO(getLogger(), "Initializing ProxemicsLayer");
+    // Bloquear el puntero node_ para obtener un shared_ptr
+    auto node = node_.lock();
+    if (!node) {
+      RCLCPP_ERROR(rclcpp::get_logger("ProxemicsLayer"), "No se pudo obtener el nodo.");
+      return;
+    }
 
-    // Se suscribe al tópico 'person_pose' para obtener la posición de la persona
-    person_sub_ = node_->create_subscription<geometry_msgs::msg::PoseStamped>(
+    RCLCPP_INFO(node->get_logger(), "Inicializando ProxemicsLayer");
+
+    // Declarar parámetros (usando rclcpp::ParameterValue)
+    declareParameter("ellipse_a", rclcpp::ParameterValue(0.5));
+    declareParameter("ellipse_b", rclcpp::ParameterValue(0.3));
+
+    // Obtener los parámetros desde el nodo
+    node->get_parameter("ellipse_a", a_);
+    node->get_parameter("ellipse_b", b_);
+
+    // Crear la suscripción al tópico "person_pose"
+    person_sub_ = node->create_subscription<geometry_msgs::msg::PoseStamped>(
       "person_pose", 10,
       [this](const geometry_msgs::msg::PoseStamped::SharedPtr msg)
       {
@@ -30,15 +45,9 @@ public:
         person_y_ = msg->pose.position.y;
         person_received_ = true;
       });
-
-    // Se leen parámetros para definir el tamaño de la elipse
-    declareParameter("ellipse_a", 0.5);  // semi-eje mayor [m]
-    declareParameter("ellipse_b", 0.3);  // semi-eje menor [m]
-    a_ = getParameter("ellipse_a").as_double();
-    b_ = getParameter("ellipse_b").as_double();
   }
 
-  // Actualiza los límites de la región que se modificará en el costmap
+  // Actualiza los límites de la zona a modificar en el costmap
   virtual void updateBounds(double /*origin_x*/, double /*origin_y*/, double /*origin_yaw*/,
                             double* min_x, double* min_y, double* max_x, double* max_y) override
   {
@@ -55,8 +64,8 @@ public:
     *max_y = std::max(*max_y, ellipse_max_y);
   }
 
-  // Actualiza los costos del costmap asignando un alto costo (obstáculo) dentro de la elipse
-  virtual void updateCosts(nav2_costmap_2d::Costmap2D& master_grid,
+  // Actualiza los costos del costmap asignando un costo letal a las celdas dentro de la elipse
+  virtual void updateCosts(nav2_costmap_2d::Costmap2D & master_grid,
                            int min_i, int min_j, int max_i, int max_j) override
   {
     if (!person_received_) return;
@@ -70,7 +79,7 @@ public:
         master_grid.mapToWorld(i, j, wx, wy);
         double dx = wx - person_x_;
         double dy = wy - person_y_;
-        // Si la celda está dentro de la elipse definida, se asigna un costo letal
+        // Si la celda está dentro de la elipse (ecuación de la elipse normalizada)
         if ((dx * dx) / (a_ * a_) + (dy * dy) / (b_ * b_) <= 1.0)
         {
           master_grid.setCost(i, j, nav2_costmap_2d::LETHAL_OBSTACLE);
@@ -78,6 +87,10 @@ public:
       }
     }
   }
+
+  // Implementación mínima de los métodos virtuales puros
+  virtual void reset() override {}
+  virtual bool isClearable() override { return true; }
 
 private:
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr person_sub_;
@@ -88,7 +101,7 @@ private:
   double b_{0.3};  // semi-eje menor de la elipse
 };
 
-}  // namespace proxemics_costmap_layer
+} // namespace proxemics_costmap_layer
 
 // Macro para exportar la clase como plugin
 PLUGINLIB_EXPORT_CLASS(proxemics_costmap_layer::ProxemicsLayer, nav2_costmap_2d::Layer)
