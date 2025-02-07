@@ -20,6 +20,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+            'skeleton_detector = sancho_perception.skeleton_detector:main',
+            'skeleton_3d_node = sancho_perception.skeleton_3d_node:main',
         ],
     },
 )
