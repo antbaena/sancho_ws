@@ -24,6 +24,7 @@ setup(
         'console_scripts': [
             'skeleton_detection_node = sancho_perception.skeleton_detector:main',
             'skeleton_3d_node = sancho_perception.skeleton_3d_node:main',
+            'navigate_to_detection_node = sancho_perception.navigate_to_detection_node:main',
         ],
     },
 )
