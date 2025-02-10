@@ -196,7 +196,7 @@ global_costmap:
       width: 10
       height: 10
       transform_tolerance: 1.0
-      plugin_names: ["static_layer", "obstacle_layer", "proxemics_costmap_layer", "inflation_layer"]
+      plugin_names: ["static_layer", "obstacle_layer", "proxemics_costmap_layer", "inflation_layer", "gradient_layer"]
 
       static_layer:
         plugin: "nav2_costmap_2d::StaticLayer"
