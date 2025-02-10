@@ -11,7 +11,7 @@
 namespace proxemics_costmap_layer
 {
 
-class ProxemicsLayer : public nav2_costmap_2d::CostmapLayer
+class ProxemicsLayer : public nav2_costmap_2d::Layer
 {
 public:
   ProxemicsLayer() = default;
@@ -29,12 +29,16 @@ public:
     RCLCPP_INFO(node->get_logger(), "Inicializando ProxemicsLayer");
 
     // Declarar parámetros (usando rclcpp::ParameterValue)
+    declareParameter("enabled", rclcpp::ParameterValue(true));
     declareParameter("ellipse_a", rclcpp::ParameterValue(0.5));
     declareParameter("ellipse_b", rclcpp::ParameterValue(0.3));
+
 
     // Obtener los parámetros desde el nodo
     node->get_parameter("ellipse_a", a_);
     node->get_parameter("ellipse_b", b_);
+
+    enabled_ = true; // Habilitar la capa
 
     // Crear la suscripción al tópico "person_pose"
     person_sub_ = node->create_subscription<geometry_msgs::msg::PoseStamped>(
@@ -51,7 +55,8 @@ public:
   virtual void updateBounds(double /*origin_x*/, double /*origin_y*/, double /*origin_yaw*/,
                             double* min_x, double* min_y, double* max_x, double* max_y) override
   {
-    if (!person_received_) return;
+    if (!enabled_ || !person_received_) return;
+
 
     double ellipse_min_x = person_x_ - a_;
     double ellipse_max_x = person_x_ + a_;
@@ -68,7 +73,8 @@ public:
   virtual void updateCosts(nav2_costmap_2d::Costmap2D & master_grid,
                            int min_i, int min_j, int max_i, int max_j) override
   {
-    if (!person_received_) return;
+    if (!enabled_ || !person_received_) return;
+
 
     double wx, wy;
     for (int i = min_i; i < max_i; ++i)
