@@ -27,7 +27,7 @@ find_package(geometry_msgs REQUIRED)
 set(dep_pkgs
     rclcpp
     nav2_costmap_2d
-    pluginlib,
+    pluginlib
     geometry_msgs)
 
 
