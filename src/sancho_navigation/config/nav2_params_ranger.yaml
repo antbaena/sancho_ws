@@ -1,3 +1,6 @@
+# =====================
+# AMCL
+# =====================
 amcl:
   ros__parameters:
     use_sim_time: False
@@ -6,12 +9,12 @@ amcl:
     scan_topic: "/scan_1st"
     min_particles: 100
     max_particles: 5000
-    alpha1: 0.2  # Ruido en la rotación por odometría rotacional
-    alpha2: 0.2  # Ruido en la rotación por odometría traslacional
-    alpha3: 0.2  # Ruido en la traslación por odometría traslacional
-    alpha4: 0.2  # Ruido en la traslación por odometría rotacional
-    alpha5: 0.2  # Ruido adicional para modelos omnidireccionales
-    robot_model_type: "nav2_amcl::OmniMotionModel"  # Se utiliza OmniMotionModel para tener en cuenta posibles desplazamientos en Y en la odometría
+    alpha1: 0.2
+    alpha2: 0.2
+    alpha3: 0.2
+    alpha4: 0.2
+    alpha5: 0.2
+    robot_model_type: "nav2_amcl::OmniMotionModel"  # o "DifferentialMotionModel" si es un base diff
     laser_model_type: "likelihood_field"
     laser_max_range: 100.0
     laser_min_range: -1.0
@@ -28,10 +31,9 @@ amcl:
     initial_cov_yy: 0.25
     initial_cov_aa: 0.06853
 
-#-------------------------------------------------
-# (BT) Behaviour Tree
-# Selects and runs the behaviour-tree for navigating
-#-------------------------------------------------
+# =====================
+# BT NAVIGATOR
+# =====================
 bt_navigator:
   ros__parameters:
     use_sim_time: False
@@ -43,61 +45,57 @@ bt_navigator:
     enable_groot_monitoring: True
     groot_zmq_publisher_port: 1666
     groot_zmq_server_port: 1667
-    # 'default_nav_through_poses_bt_xml' and 'default_nav_to_pose_bt_xml' are use defaults:
-    # nav2_bt_navigator/navigate_to_pose_w_replanning_and_recovery.xml
-    # nav2_bt_navigator/navigate_through_poses_w_replanning_and_recovery.xml
-    # They can be set here or via a RewrittenYaml remap from a parent launch file to Nav2.
     plugin_lib_names:
-    - nav2_compute_path_to_pose_action_bt_node
-    - nav2_compute_path_through_poses_action_bt_node
-    - nav2_follow_path_action_bt_node
-    - nav2_back_up_action_bt_node
-    - nav2_spin_action_bt_node
-    - nav2_wait_action_bt_node
-    - nav2_clear_costmap_service_bt_node
-    - nav2_is_stuck_condition_bt_node
-    - nav2_goal_reached_condition_bt_node
-    - nav2_goal_updated_condition_bt_node
-    - nav2_initial_pose_received_condition_bt_node
-    - nav2_reinitialize_global_localization_service_bt_node
-    - nav2_rate_controller_bt_node
-    - nav2_distance_controller_bt_node
-    - nav2_speed_controller_bt_node
-    - nav2_truncate_path_action_bt_node
-    - nav2_goal_updater_node_bt_node
-    - nav2_recovery_node_bt_node # he cambiado "recovery" por "behavior"
-    - nav2_pipeline_sequence_bt_node
-    - nav2_round_robin_node_bt_node
-    - nav2_transform_available_condition_bt_node
-    - nav2_time_expired_condition_bt_node
-    - nav2_distance_traveled_condition_bt_node
-    - nav2_single_trigger_bt_node
-    - nav2_is_battery_low_condition_bt_node
-    - nav2_navigate_through_poses_action_bt_node
-    - nav2_navigate_to_pose_action_bt_node
-    - nav2_remove_passed_goals_action_bt_node
-    - nav2_planner_selector_bt_node
-    - nav2_controller_selector_bt_node
-    - nav2_goal_checker_selector_bt_node
-    #- nav2_goal_updated_controller_bt_node # este es el que no encuentra
+      - nav2_compute_path_to_pose_action_bt_node
+      - nav2_compute_path_through_poses_action_bt_node
+      - nav2_follow_path_action_bt_node
+      - nav2_back_up_action_bt_node
+      - nav2_spin_action_bt_node
+      - nav2_wait_action_bt_node
+      - nav2_clear_costmap_service_bt_node
+      - nav2_is_stuck_condition_bt_node
+      - nav2_goal_reached_condition_bt_node
+      - nav2_goal_updated_condition_bt_node
+      - nav2_initial_pose_received_condition_bt_node
+      - nav2_reinitialize_global_localization_service_bt_node
+      - nav2_rate_controller_bt_node
+      - nav2_distance_controller_bt_node
+      - nav2_speed_controller_bt_node
+      - nav2_truncate_path_action_bt_node
+      - nav2_goal_updater_node_bt_node
+      - nav2_recovery_node_bt_node
+      - nav2_pipeline_sequence_bt_node
+      - nav2_round_robin_node_bt_node
+      - nav2_transform_available_condition_bt_node
+      - nav2_time_expired_condition_bt_node
+      - nav2_distance_traveled_condition_bt_node
+      - nav2_single_trigger_bt_node
+      - nav2_is_battery_low_condition_bt_node
+      - nav2_navigate_through_poses_action_bt_node
+      - nav2_navigate_to_pose_action_bt_node
+      - nav2_remove_passed_goals_action_bt_node
+      - nav2_planner_selector_bt_node
+      - nav2_controller_selector_bt_node
+      - nav2_goal_checker_selector_bt_node
 
 bt_navigator_rclcpp_node:
   ros__parameters:
     use_sim_time: False
 
-#-------------------------------------------------
-# (Controller) DWB
-#-------------------------------------------------
+# =====================
+# DWB CONTROLLER SERVER
+# =====================
 controller_server:
   ros__parameters:
     use_sim_time: False
     controller_frequency: 20.0
     min_x_velocity_threshold: 0.5
-    min_y_velocity_threshold: 0.5 # Reducido para detectar movimientos pequeños en Y
+    min_y_velocity_threshold: 0.5
     min_theta_velocity_threshold: 0.5
     failure_tolerance: 0.3
+
     progress_checker_plugin: "progress_checker"
-    goal_checker_plugins: ["general_goal_checker"] # "precise_goal_checker"
+    goal_checker_plugins: ["general_goal_checker"]  # o "precise_goal_checker"
     controller_plugins: ["FollowPath"]
 
     # Progress checker parameters
@@ -105,37 +103,48 @@ controller_server:
       plugin: "nav2_controller::SimpleProgressChecker"
       required_movement_radius: 0.5
       movement_time_allowance: 10.0
+
     # Goal checker parameters
-    # precise_goal_checker:
-      # plugin: "nav2_controller::SimpleGoalChecker"
-      # xy_goal_tolerance: 0.25
-      # yaw_goal_tolerance: 0.25
-      # stateful: True
     general_goal_checker:
       stateful: True
       plugin: "nav2_controller::SimpleGoalChecker"
       xy_goal_tolerance: 0.25
       yaw_goal_tolerance: 0.25
+
+    # Si lo necesitas, define la "precise_goal_checker" también
+    # precise_goal_checker:
+    #   plugin: "nav2_controller::SimpleGoalChecker"
+    #   xy_goal_tolerance: 0.25
+    #   yaw_goal_tolerance: 0.25
+    #   stateful: True
+
     FollowPath:
       plugin: "dwb_core::DWBLocalPlanner"
       debug_trajectory_details: True
+      # Velocidades mínimas/máximas
       min_vel_x: 0.0
-      min_vel_y: 0.0    # Permitir movimiento en ambas direcciones en Y
       max_vel_x: 0.5
-      max_vel_y: 0.0     # Valor mayor a cero para permitir desplazamiento en Y
+      # Si es base omnidireccional y quieres movimiento en Y, pon max_vel_y > 0
+      min_vel_y: 0.0
+      max_vel_y: 0.0   # Cambia si quieres moverte en Y
       max_vel_theta: 1.0
       min_speed_xy: 0.0
       max_speed_xy: 0.26
       min_speed_theta: 0.0
+
+      # Aceleraciones
       acc_lim_x: 4.5
-      acc_lim_y: 0.0    # Aceleración en Y ajustada
+      acc_lim_y: 0.0
       acc_lim_theta: 3.2
       decel_lim_x: -4.5
-      decel_lim_y: 0.0  # Desaceleración en Y ajustada
+      decel_lim_y: 0.0
       decel_lim_theta: -3.2
+
+      # Muestreo
       vx_samples: 20
       vy_samples: 5
       vtheta_samples: 20
+
       sim_time: 1.7
       linear_granularity: 0.05
       angular_granularity: 0.025
@@ -144,6 +153,8 @@ controller_server:
       trans_stopped_velocity: 0.25
       short_circuit_trajectory_evaluation: True
       stateful: True
+
+      # Critic plugins
       critics: ["RotateToGoal", "Oscillation", "BaseObstacle", "GoalAlign", "PathAlign", "PathDist", "GoalDist"]
       BaseObstacle.scale: 0.02
       PathAlign.scale: 32.0
@@ -155,18 +166,18 @@ controller_server:
       RotateToGoal.scale: 32.0
       RotateToGoal.slowing_factor: 5.0
       RotateToGoal.lookahead_time: -1.0
-      
+
 controller_server_rclcpp_node:
   ros__parameters:
     use_sim_time: False
 
-#-------------------------------------------------
-# (Planner) NavFN
-#-------------------------------------------------
+# =====================
+# PLANNER SERVER (NavFN)
+# =====================
 planner_server:
   ros__parameters:
-    expected_planner_frequency: 20.0
     use_sim_time: False
+    expected_planner_frequency: 20.0
     planner_plugins: ["GridBased"]
     GridBased:
       plugin: "nav2_navfn_planner/NavfnPlanner"
@@ -178,157 +189,138 @@ planner_server_rclcpp_node:
   ros__parameters:
     use_sim_time: False
 
-
+# =====================
+# MAP SERVER
+# =====================
 map_server:
   ros__parameters:
     use_sim_time: False
     yaml_filename: "/home/mapir/ros2_nav/src/ranger_nav2/config/map.yaml"
 
-# # GLOBAL COSTMAP
-# global_costmap:
-#   global_costmap:
-#     ros__parameters:
-#       use_sim_time: False
-#       global_frame: "map"
-#       robot_base_frame: "base_link"
-#       rolling_window: false
-#       resolution: 0.05
-#       width: 10
-#       height: 10
-#       transform_tolerance: 1.0
-#       plugin_names: ["static_layer", "obstacle_layer", "proxemics_costmap_layer_plugin", "inflation_layer"]
-
-#       static_layer:
-#         plugin: "nav2_costmap_2d::StaticLayer"
-#         map_subscribe_transient_local: True
-#         subscribe_to_updates: True
-#         enabled: True
-
-#       obstacle_layer:
-#         plugin: "nav2_costmap_2d::ObstacleLayer"
-#         enabled: True
-#         observation_sources: "laser_front laser_back"
-#         laser_front:
-#           topic: "/scan_1st"
-#           max_obstacle_height: 2.0
-#           clearing: True
-#           marking: True
-#         laser_back:
-#           topic: "/scan_2nd"
-#           max_obstacle_height: 2.0
-#           clearing: True
-#           marking: True
-
-#       proxemics_costmap_layer_plugin:
-#         plugin: "proxemics_costmap_layer_plugin::ProxemicsLayer"
-#         ellipse_a: 0.5
-#         ellipse_b: 0.3
-
-#       inflation_layer:
-#         plugin: "nav2_costmap_2d::InflationLayer"
-#         enabled: True
-#         cost_scaling_factor: 2.0
-#         inflation_radius: 0.55
-
-
-# # LOCAL COSTMAP
-# local_costmap:
-#   local_costmap:
-#     ros__parameters:
-#       use_sim_time: False
-#       global_frame: "odom"
-#       robot_base_frame: "base_link"
-#       rolling_window: true
-#       width: 5
-#       height: 5
-#       resolution: 0.05
-#       transform_tolerance: 1.0
-#       plugin_names: ["obstacle_layer", "inflation_layer"]
-
-#       obstacle_layer:
-#         plugin: "nav2_costmap_2d::ObstacleLayer"
-#         enabled: True
-#         # Se definen dos fuentes de observación
-#         observation_sources: "laser_front laser_back"
-#         laser_front:
-#           topic: "/scan_1st"
-#           max_obstacle_height: 2.0
-#           clearing: True
-#           marking: True
-#         laser_back:
-#           topic: "/scan_2nd"
-#           max_obstacle_height: 2.0
-#           clearing: True
-#           marking: True
-
-#       inflation_layer:
-#         plugin: "nav2_costmap_2d::InflationLayer"
-#         enabled: True
-#         cost_scaling_factor: 2.0
-#         inflation_radius: 0.55
-
+# =====================
+# GLOBAL COSTMAP
+# =====================
 global_costmap:
   global_costmap:
     ros__parameters:
+      use_sim_time: False        # Robot real
+      global_frame: "map"        # Typically 'map'
+      robot_base_frame: "base_link"
+      resolution: 0.05
       footprint_padding: 0.03
+      transform_tolerance: 0.2
+
+      # Frecuencias típicas
       update_frequency: 1.0
       publish_frequency: 1.0
-      global_frame: map
-      robot_base_frame: base_link
-      use_sim_time: True
-      robot_radius: 0.22 # radius set and used, so no footprint points
-      resolution: 0.05
-      plugins: ["static_layer", "obstacle_layer", "voxel_layer", "inflation_layer", "proxemics_costmap_layer_plugin"]
+
+      # Radio del robot (o footprint)
+      robot_radius: 0.22
+
+      # Lista de capas
+      plugins:
+        - "static_layer"
+        - "obstacle_layer"
+        - "inflation_layer"
+        - "proxemics_layer"
+
+      # Static layer
+      static_layer:
+        plugin: "nav2_costmap_2d::StaticLayer"
+        enabled: true
+        map_subscribe_transient_local: true
+        subscribe_to_updates: false
+        transform_tolerance: 0.2
+
+      # Obstacle layer
       obstacle_layer:
         plugin: "nav2_costmap_2d::ObstacleLayer"
         enabled: True
-        observation_sources: scan
         footprint_clearing_enabled: true
         max_obstacle_height: 2.0
         combination_method: 1
-        scan:
-          topic: /scan
-          obstacle_max_range: 2.5
-          obstacle_min_range: 0.0
-          raytrace_max_range: 3.0
-          raytrace_min_range: 0.0
+        observation_sources: "laser_front laser_back"
+
+        laser_front:
+          topic: "/scan_1st"
           max_obstacle_height: 2.0
-          min_obstacle_height: 0.0
           clearing: True
           marking: True
-          data_type: "LaserScan"
-          inf_is_valid: false
-      voxel_layer:
-        plugin: "nav2_costmap_2d::VoxelLayer"
+
+        laser_back:
+          topic: "/scan_2nd"
+          max_obstacle_height: 2.0
+          clearing: True
+          marking: True
+
+      # Inflation layer
+      inflation_layer:
+        plugin: "nav2_costmap_2d::InflationLayer"
+        enabled: true
+        inflation_radius: 0.55
+        cost_scaling_factor: 1.0
+        inflate_unknown: false
+        inflate_around_unknown: true  # Pon en false si no quieres inflar celdas desconocidas
+
+      # Proxemics layer
+      proxemics_layer:
+        plugin: "proxemics_costmap_layer::ProxemicsLayer"
+        ellipse_a: 0.5
+        ellipse_b: 0.3
+
+      # Costmap completo
+      always_send_full_costmap: True
+
+# =====================
+# LOCAL COSTMAP
+# =====================
+local_costmap:
+  local_costmap:
+    ros__parameters:
+      use_sim_time: False          # Robot real
+      global_frame: "odom"         # Típico para local costmap
+      robot_base_frame: "base_link"
+      resolution: 0.05
+      transform_tolerance: 0.2
+
+      rolling_window: true
+      width: 3
+      height: 3
+
+      # Frecuencias del local costmap
+      update_frequency: 5.0
+      publish_frequency: 2.0
+
+      robot_radius: 0.22
+      footprint_padding: 0.03
+
+      plugins:
+        - "obstacle_layer"
+        - "inflation_layer"
+        - "proxemics_layer"
+
+      # Obstacle layer local
+      obstacle_layer:
+        plugin: "nav2_costmap_2d::ObstacleLayer"
         enabled: True
         footprint_clearing_enabled: true
         max_obstacle_height: 2.0
-        publish_voxel_map: True
-        origin_z: 0.0
-        z_resolution: 0.05
-        z_voxels: 16
-        max_obstacle_height: 2.0
-        unknown_threshold: 15
-        mark_threshold: 0
-        observation_sources: pointcloud
         combination_method: 1
-        pointcloud:  # no frame set, uses frame from message
-          topic: /intel_realsense_r200_depth/points
+        observation_sources: "laser_front laser_back"
+
+        laser_front:
+          topic: "/scan_1st"
           max_obstacle_height: 2.0
-          min_obstacle_height: 0.0
-          obstacle_max_range: 2.5
-          obstacle_min_range: 0.0
-          raytrace_max_range: 3.0
-          raytrace_min_range: 0.0
           clearing: True
           marking: True
-          data_type: "PointCloud2"
-      static_layer:
-        plugin: "nav2_costmap_2d::StaticLayer"
-        map_subscribe_transient_local: True
-        enabled: true
-        subscribe_to_updates: true
-        transform_tolerance: 0.1
+
+        laser_back:
+          topic: "/scan_2nd"
+          max_obstacle_height: 2.0
+          clearing: True
+          marking: True
+
+      # Inflation layer local
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         enabled: true
@@ -336,26 +328,16 @@ global_costmap:
         cost_scaling_factor: 1.0
         inflate_unknown: false
         inflate_around_unknown: true
-      always_send_full_costmap: True
-      proxemics_costmap_layer_plugin:
-         plugin: "proxemics_costmap_layer_plugin::ProxemicsLayer"
-         ellipse_a: 1.5
-         ellipse_b: 1.3
 
+      # Proxemics layer local
+      proxemics_layer:
+        plugin: "proxemics_costmap_layer::ProxemicsLayer"
+        ellipse_a: 0.5
+        ellipse_b: 0.3
 
-local_costmap:
-  local_costmap:
-    ros__parameters:
-      update_frequency: 5.0
-      publish_frequency: 2.0
-      global_frame: odom
-      robot_base_frame: base_link
-      use_sim_time: True
-      rolling_window: true
-      width: 3
-      height: 3
-      resolution: 0.05
-
+# =====================
+# BEHAVIOR SERVER
+# =====================
 behavior_server:
   ros__parameters:
     use_sim_time: False
