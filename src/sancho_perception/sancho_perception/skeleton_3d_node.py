@@ -94,7 +94,8 @@ class Skeleton3DNode(Node):
                 cv2.putText(annotated_image, f"{idx}", (x_2d + 5, y_2d - 5),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
             else:
-                self.get_logger().warning(f"Keypoint {idx} fuera de rango: ({x_2d}, {y_2d})")
+                # self.get_logger().warning(f"Keypoint {idx} fuera de rango: ({x_2d}, {y_2d})")
+                pass
         
         # Publicar los keypoints 3D
         self.publisher_3d.publish(pose_array_3d)
