@@ -6,107 +6,111 @@ from cv_bridge import CvBridge
 import cv2
 import numpy as np
 from message_filters import ApproximateTimeSynchronizer, Subscriber
-import open3d as o3d  # Opcional: para futuras expansiones, por ejemplo, para generar nubes de puntos
 
 class Skeleton3DNode(Node):
     def __init__(self):
         super().__init__('skeleton_3d_node')
-        
-        # Inicializamos el puente para convertir entre mensajes ROS y OpenCV
+
         self.bridge = CvBridge()
         self.intrinsic_matrix = None
-        
-        # Suscriptores sincronizados para los keypoints 2D, la imagen de profundidad y la info de la cámara
+
+        # Suscriptores sincronizados
         self.sub_keypoints_2d = Subscriber(self, PoseArray, '/human_pose/keypoints2d')
         self.sub_depth = Subscriber(self, Image, '/camera/depth/image_raw')
         self.sub_info = Subscriber(self, CameraInfo, '/camera/depth/camera_info')
-        
+
         self.sync = ApproximateTimeSynchronizer(
             [self.sub_keypoints_2d, self.sub_depth, self.sub_info],
             queue_size=10,
             slop=0.1
         )
         self.sync.registerCallback(self.sync_callback)
-        
-        # Publicador para los keypoints 3D
+
+        # Publicadores
         self.publisher_3d = self.create_publisher(PoseArray, '/human_pose/keypoints3d', 10)
-        # Publicador para la imagen de profundidad anotada (para visualización)
         self.annotated_pub = self.create_publisher(Image, '/human_pose/annotated_depth', 10)
-    
+
     def sync_callback(self, keypoints_2d_msg, depth_msg, info_msg):
-        # Inicializar la matriz intrínseca si aún no se ha hecho
+        # 1) Inicializar matriz intrínseca
         if self.intrinsic_matrix is None:
             self.intrinsic_matrix = np.array(info_msg.k).reshape(3, 3)
-            self.get_logger().info("Matriz intrínseca inicializada:\n{}".format(self.intrinsic_matrix))
-        
-        # Convertir la imagen de profundidad a formato OpenCV
+            self.get_logger().info(f"Matriz intrínseca inicializada:\n{self.intrinsic_matrix}")
+
+        # 2) Convertir depth a OpenCV
         try:
             depth_image = self.bridge.imgmsg_to_cv2(depth_msg, desired_encoding='passthrough')
         except Exception as e:
-            self.get_logger().error("Error al convertir la imagen de profundidad: {}".format(e))
+            self.get_logger().error(f"Error al convertir la imagen de profundidad: {e}")
             return
 
-        # Crear el mensaje PoseArray para los keypoints 3D
+        # 3) Preparar PoseArray para keypoints 3D
         pose_array_3d = PoseArray()
         pose_array_3d.header = keypoints_2d_msg.header
 
-        # Preparar la imagen de profundidad para su visualización:
-        # Normalizamos la imagen y aplicamos un colormap para obtener una imagen BGR
+        # 4) Crear una copia de la depth_image para anotaciones
         try:
             if depth_image.dtype != np.uint8:
                 depth_norm = cv2.normalize(depth_image, None, 0, 255, cv2.NORM_MINMAX)
                 depth_uint8 = depth_norm.astype(np.uint8)
             else:
-                depth_uint8 = depth_image.copy()
+                depth_uint8 = depth_image
             annotated_image = cv2.applyColorMap(depth_uint8, cv2.COLORMAP_JET)
         except Exception as e:
-            self.get_logger().error("Error al preparar la imagen de profundidad para anotación: {}".format(e))
+            self.get_logger().error(f"Error preparando imagen de profundidad: {e}")
             annotated_image = np.zeros((depth_image.shape[0], depth_image.shape[1], 3), dtype=np.uint8)
 
-        # Procesar cada keypoint 2D y calcular su posición 3D
-        for idx, pose in enumerate(keypoints_2d_msg.poses):
-            # Convertir las coordenadas normalizadas (0 a 1) a píxeles
-            x_2d = int(pose.position.x * depth_image.shape[1])
-            y_2d = int(pose.position.y * depth_image.shape[0])
-            
-            if 0 <= x_2d < depth_image.shape[1] and 0 <= y_2d < depth_image.shape[0]:
+        # 5) Calcular 3D de cada keypoint 2D
+        height, width = depth_image.shape[:2]
+        for idx, pose_2d in enumerate(keypoints_2d_msg.poses):
+            x_norm = pose_2d.position.x
+            y_norm = pose_2d.position.y
+
+            # Convertir coordenadas normalizadas (0..1) a píxeles
+            x_2d = int(x_norm * width)
+            y_2d = int(y_norm * height)
+
+            if 0 <= x_2d < width and 0 <= y_2d < height:
                 depth_value = depth_image[y_2d, x_2d]
-                # Si no se dispone de un valor de profundidad (0), se omite el keypoint
-                if depth_value == 0:
+
+                # Salta si la profundidad es 0 o NaN
+                if depth_value <= 0:
                     continue
 
-                # Calcular las coordenadas 3D:
-                # X = (u - cx) * Z / fx ; Y = (v - cy) * Z / fy ; Z = profundidad
-                x_3d = (x_2d - self.intrinsic_matrix[0, 2]) * depth_value / self.intrinsic_matrix[0, 0]
-                y_3d = (y_2d - self.intrinsic_matrix[1, 2]) * depth_value / self.intrinsic_matrix[1, 1]
-                z_3d = depth_value
+                # Proyección a 3D
+                cx = self.intrinsic_matrix[0, 2]
+                cy = self.intrinsic_matrix[1, 2]
+                fx = self.intrinsic_matrix[0, 0]
+                fy = self.intrinsic_matrix[1, 1]
 
-                # Crear el mensaje Pose y asegurarse de que los valores sean float nativos
+                # X = (u - cx) * Z / fx
+                # Y = (v - cy) * Z / fy
+                # Z = depth_value
+                X = (x_2d - cx) * depth_value / fx
+                Y = (y_2d - cy) * depth_value / fy
+                Z = depth_value
+
+                # Crear Pose con la posición 3D
                 pose_3d = Pose()
-                pose_3d.position.x = float(x_3d)
-                pose_3d.position.y = float(y_3d)
-                pose_3d.position.z = float(z_3d)
-                # La orientación queda sin definir (se mantienen valores por defecto)
+                pose_3d.position.x = float(X)
+                pose_3d.position.y = float(Y)
+                pose_3d.position.z = float(Z)
                 pose_array_3d.poses.append(pose_3d)
-                
-                # Anotar la imagen de profundidad: dibujar un círculo y el índice del keypoint
+
+                # Anotar en la imagen
                 cv2.circle(annotated_image, (x_2d, y_2d), 4, (0, 255, 0), -1)
-                cv2.putText(annotated_image, f"{idx}", (x_2d + 5, y_2d - 5),
+                cv2.putText(annotated_image, f"{idx}", (x_2d+5, y_2d-5),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
-            else:
-                # self.get_logger().warning(f"Keypoint {idx} fuera de rango: ({x_2d}, {y_2d})")
-                pass
-        
-        # Publicar los keypoints 3D
+
+        # 6) Publicar keypoints 3D
         self.publisher_3d.publish(pose_array_3d)
-        
-        # Convertir y publicar la imagen de profundidad anotada
+
+        # 7) Publicar imagen de profundidad anotada
         try:
             annotated_msg = self.bridge.cv2_to_imgmsg(annotated_image, encoding='bgr8')
             annotated_msg.header = depth_msg.header
             self.annotated_pub.publish(annotated_msg)
         except Exception as e:
-            self.get_logger().error("Error al publicar la imagen anotada: {}".format(e))
+            self.get_logger().error(f"Error publicando imagen anotada: {e}")
 
 def main(args=None):
     rclpy.init(args=args)

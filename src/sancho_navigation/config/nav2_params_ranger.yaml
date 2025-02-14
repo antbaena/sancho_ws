@@ -331,9 +331,12 @@ local_costmap:
 
       # Proxemics layer local
       proxemics_layer:
-        plugin: "proxemics_costmap_layer::ProxemicsLayer"
-        ellipse_a: 0.5
-        ellipse_b: 0.3
+        enabled: true
+        ellipse_a: 0.7
+        ellipse_b: 0.4
+        obstacle_cost: 254
+        person_topic: "/person_pose"
+        transform_tolerance: 0.2
 
 # =====================
 # BEHAVIOR SERVER
