@@ -10,7 +10,9 @@ def generate_launch_description():
         package='sancho_perception',
         executable='skeleton_detection_node',
         name='skeleton_detection_node',
-        output='screen'
+        output='screen',
+        prefix="xterm -hold -e",
+        emulate_tty=True,
     )
 
     # Nodo para la transformación de keypoints 2D a 3D y publicación de imagen de profundidad anotada
@@ -18,14 +20,18 @@ def generate_launch_description():
         package='sancho_perception',
         executable='skeleton_3d_node',
         name='skeleton_3d_node',
-        output='screen'
+        output='screen',
+        prefix="xterm -hold -e",
+        emulate_tty=True,
     )
     
     person_pose_publisher_node = Node(
         package='sancho_perception',
         executable='person_pose_publisher_node',
         name='person_pose_publisher_node',
-        output='screen'
+        output='screen',
+        prefix="xterm -hold -e",
+        emulate_tty=True,
     )
 
     return LaunchDescription([

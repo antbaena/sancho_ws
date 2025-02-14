@@ -5,6 +5,9 @@ import tf2_ros
 import tf2_geometry_msgs
 import numpy as np
 from rclpy.duration import Duration
+from rclpy.time import Time
+from rclpy.duration import Duration
+
 
 class PersonPosePublisher(Node):
     def __init__(self):
@@ -48,7 +51,7 @@ class PersonPosePublisher(Node):
         for idx, pose in enumerate(msg.poses):
             x = pose.position.x
             y = pose.position.y
-            z = pose.position.z
+            z = pose.position.z/1000.0  # Convertir a metros
 
             # a) Usar sólo ciertos keypoints del torso (opcional)
             if idx not in self.torso_indices:
@@ -93,20 +96,24 @@ class PersonPosePublisher(Node):
         person_pose.header = msg.header  # conserva stamp y frame_id
         person_pose.pose.position.x = float(center_3d[0])
         person_pose.pose.position.y = float(center_3d[1])
-        person_pose.pose.position.z = float(center_3d[2])/1000.0  # Convertir a metros
+        person_pose.pose.position.z = float(center_3d[2])
         person_pose.pose.orientation.w = 1.0  # sin orientación
 
         # 6. Transformar la pose al frame "map"
+      
+        stamp_time = Time.from_msg(msg.header.stamp)
+        transform_tolerance = Duration(seconds=0.5)
+
         try:
             transform = self.tf_buffer.lookup_transform(
-                "map",
-                msg.header.frame_id,
-                rclpy.time.Time().to_msg(),
-                timeout=Duration(seconds=0.5).to_msg()
+                target_frame="map",
+                source_frame=msg.header.frame_id,
+                time=stamp_time,
+                timeout=transform_tolerance
             )
 
             # Aplicar transform
-            transformed_pose = tf2_geometry_msgs.do_transform_pose(person_pose, transform)
+            transformed_pose = tf2_geometry_msgs.do_transform_pose_stamped(person_pose, transform)
             self.publisher_.publish(transformed_pose)
 
             self.get_logger().info(
