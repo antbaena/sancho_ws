@@ -26,6 +26,8 @@ setup(
             'skeleton_3d_node = sancho_perception.skeleton_3d_node:main',
             'navigate_to_detection_node = sancho_perception.navigate_to_detection_node:main',
             'person_pose_publisher_node = sancho_perception.person_pose_publisher_node:main',
+            'person_detector_node = sancho_perception.person_detector_node:main',
+            'person_pose_extractor_node = sancho_perception.person_pose_extractor_node:main',
         ],
     },
 )
