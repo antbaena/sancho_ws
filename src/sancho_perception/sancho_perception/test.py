@@ -7,7 +7,7 @@ from sensor_msgs.msg import Image, CameraInfo
 from std_msgs.msg import Header
 from geometry_msgs.msg import PoseStamped, Pose, Point, Quaternion
 # Se mantienen los custom messages para keypoints2d y keypoints3d
-from human_pose_msgs.msg import PersonsPoses, PersonPose
+from sancho_msgs.msg import PersonsPoses, PersonPose
 
 import cv2 as cv
 import numpy as np
