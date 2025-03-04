@@ -1,2 +1,7 @@
+# PersonsPoses.msg
+
+# Cabecera para sincronización
 std_msgs/Header header
-PersonPose[] poses
+
+# Array de poses detectadas
+PersonPose[] persons
