@@ -4,7 +4,7 @@
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image, CameraInfo
-from geometry_msgs.msg import PoseStamped, Point, Quaternion
+from geometry_msgs.msg import PoseArray, Pose, Point, Quaternion
 from sancho_msgs.msg import PersonsPoses, PersonPose
 from cv_bridge import CvBridge, CvBridgeError
 import numpy as np
@@ -36,9 +36,9 @@ class MoveNetPostprocessingNode(Node):
         self.create_subscription(CameraInfo, '/camera/color/camera_info', self.camera_info_callback, 10)
         self.camera_info = None
 
-        # Publicadores para detecciones 3D y pose
+        # Publicadores para detecciones 3D y múltiples poses
         self.keypoints3d_pub = self.create_publisher(PersonsPoses, '/human_pose/keypoints3d', 10)
-        self.pose_stamped_pub = self.create_publisher(PoseStamped, '/human_pose/person_pose', 10)
+        self.persons_poses_pub = self.create_publisher(PoseArray, '/human_pose/persons_poses', 10)
 
     def camera_info_callback(self, msg):
         self.camera_info = msg
@@ -53,8 +53,7 @@ class MoveNetPostprocessingNode(Node):
         persons_3d_msg = PersonsPoses()
         persons_3d_msg.header = detections_msg.header
 
-        best_valid_count = -1
-        best_avg_position = None
+        poses_list = []  # Lista de poses válidas para todas las detecciones
 
         for person in detections_msg.persons:
             new_person = PersonPose()
@@ -89,26 +88,26 @@ class MoveNetPostprocessingNode(Node):
 
             persons_3d_msg.persons.append(new_person)
 
-            # Calcular la mejor detección para obtener una pose promedio
+            # Si existen puntos válidos, calcular la pose promedio para este detection
             if valid_points:
                 avg_point = np.mean(valid_points, axis=0)
-                if len(valid_points) > best_valid_count:
-                    best_valid_count = len(valid_points)
-                    best_avg_position = avg_point
+                pose = Pose()
+                pose.position.x = float(avg_point[0])
+                pose.position.y = float(avg_point[1])
+                pose.position.z = float(avg_point[2])
+                # Orientación fija (se puede mejorar el cálculo de la orientación real)
+                pose.orientation = Quaternion(x=0.0, y=0.0, z=0.0, w=1.0)
+                poses_list.append(pose)
 
         self.keypoints3d_pub.publish(persons_3d_msg)
         self.get_logger().info("Publicadas detecciones 3D.")
 
-        if best_avg_position is not None:
-            pose_msg = PoseStamped()
-            pose_msg.header = detections_msg.header
-            pose_msg.pose.position = Point(
-                x=float(best_avg_position[0]),
-                y=float(best_avg_position[1]),
-                z=float(best_avg_position[2])
-            )
-            pose_msg.pose.orientation = Quaternion(x=0.0, y=0.0, z=0.0, w=1.0)
-            self.pose_stamped_pub.publish(pose_msg)
+        if poses_list:
+            poses_array = PoseArray()
+            poses_array.header = detections_msg.header
+            poses_array.poses = poses_list
+            self.persons_poses_pub.publish(poses_array)
+            self.get_logger().info(f"Publicadas {len(poses_list)} poses válidas en persons_poses.")
         else:
             self.get_logger().info("No se pudo calcular la pose 3D de ninguna persona.")
 
