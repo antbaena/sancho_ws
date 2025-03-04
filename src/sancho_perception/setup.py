@@ -22,14 +22,9 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'skeleton_detection_node = sancho_perception.skeleton_detector:main',
-            'skeleton_3d_node = sancho_perception.skeleton_3d_node:main',
-            'navigate_to_detection_node = sancho_perception.navigate_to_detection_node:main',
-            'person_pose_publisher_node = sancho_perception.person_pose_publisher_node:main',
-            'person_detector_node = sancho_perception.person_detector_node:main',
-            'person_pose_extractor_node = sancho_perception.person_pose_extractor_node:main',
             'movenet_inference_node = sancho_perception.movenet_inference_node:main',
             'movenet_postprocessing_node = sancho_perception.movenet_postprocessing_node:main',
+            'group_detection_node = sancho_perception.group_detection_navigator_node:main',
         ],
     },
 )

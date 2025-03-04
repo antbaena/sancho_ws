@@ -26,10 +26,10 @@ def generate_launch_description():
             name='joint_state_publisher',
             output='screen'
         ),
-        Node(
-            package="rviz2",
-            executable="rviz2",
-            name="rviz2",
-            output="screen",
-        )
+        # Node(
+        #     package="rviz2",
+        #     executable="rviz2",
+        #     name="rviz2",
+        #     output="screen",
+        # )
     ])

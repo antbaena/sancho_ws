@@ -27,7 +27,9 @@ public:
     RCLCPP_INFO(node->get_logger(), "Inicializando ProxemicsLayer");
 
     // Obtiene el TFBuffer desde la layered_costmap (ya gestionado por Nav2)
-    tf_buffer_ = layered_costmap_->getTFBuffer();
+    tf_buffer_ = std::make_shared<tf2_ros::Buffer>(node->get_clock());
+    tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+
     if (!tf_buffer_) {
       RCLCPP_ERROR(node->get_logger(), "No se pudo obtener el TFBuffer de la capa.");
     }
@@ -150,10 +152,10 @@ public:
 
   // Indica que la capa es "clearable" (se puede limpiar)
   bool isClearable() override { return true; }
-
+  
 private:
-  // TF buffer (obtenido de Nav2)
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 
   // Suscripción a la PoseArray de personas
   rclcpp::Subscription<geometry_msgs::msg::PoseArray>::SharedPtr person_sub_;

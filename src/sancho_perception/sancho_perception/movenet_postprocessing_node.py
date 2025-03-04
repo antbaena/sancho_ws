@@ -10,7 +10,7 @@ from cv_bridge import CvBridge, CvBridgeError
 import numpy as np
 import message_filters
 
-from movenet_utils import get_depth_value, convert_2d_to_3d
+from .movenet_utils import get_depth_value, convert_2d_to_3d
 
 class MoveNetPostprocessingNode(Node):
     def __init__(self):

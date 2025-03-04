@@ -265,8 +265,12 @@ global_costmap:
       # Proxemics layer
       proxemics_layer:
         plugin: "proxemics_costmap_layer::ProxemicsLayer"
+        enabled: true
         ellipse_a: 0.5
         ellipse_b: 0.3
+        obstacle_cost: 254
+        person_topic: "/human_pose/persons_poses"
+        transform_tolerance: 0.1
 
       # Costmap completo
       always_send_full_costmap: True
@@ -331,12 +335,13 @@ local_costmap:
 
       # Proxemics layer local
       proxemics_layer:
+        plugin: "proxemics_costmap_layer::ProxemicsLayer"
         enabled: true
-        ellipse_a: 0.7
-        ellipse_b: 0.4
+        ellipse_a: 0.5
+        ellipse_b: 0.3
         obstacle_cost: 254
-        person_topic: "/person_pose"
-        transform_tolerance: 0.2
+        person_topic: "/human_pose/persons_poses"
+        transform_tolerance: 0.1
 
 # =====================
 # BEHAVIOR SERVER

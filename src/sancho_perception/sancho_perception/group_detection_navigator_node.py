@@ -18,7 +18,7 @@ class GroupDetectionNavigatorNode(Node):
         self.declare_parameter('group_distance_threshold', 1.0)  # Distancia máxima entre personas para considerarlas en grupo (m)
         self.declare_parameter('min_group_duration', 3.0)          # Duración mínima en segundos para confirmar grupo
         self.declare_parameter('group_centroid_tolerance', 0.5)      # Tolerancia en metros para considerar que el grupo sigue siendo el mismo
-        self.declare_parameter('navigation_goal_topic', '/move_base_simple/goal')
+        self.declare_parameter('navigation_goal_topic', '/goal_pose')
         self.declare_parameter('check_period', 0.5)                  # Frecuencia (en s) del timer para comprobar persistencia
 
         self.group_distance_threshold = self.get_parameter('group_distance_threshold').value

@@ -8,7 +8,7 @@ from sancho_msgs.msg import PersonsPoses, PersonPose
 from cv_bridge import CvBridge, CvBridgeError
 import cv2 as cv
 
-from movenet_utils import load_model, run_inference_on_image, process_detections
+from .movenet_utils import load_model, run_inference_on_image, process_detections
 
 class MoveNetInferenceNode(Node):
     def __init__(self):
