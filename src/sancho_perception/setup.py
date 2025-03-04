@@ -28,7 +28,8 @@ setup(
             'person_pose_publisher_node = sancho_perception.person_pose_publisher_node:main',
             'person_detector_node = sancho_perception.person_detector_node:main',
             'person_pose_extractor_node = sancho_perception.person_pose_extractor_node:main',
-            'test_skeleton_3d_node = sancho_perception.test:main',
+            'movenet_inference_node = sancho_perception.movenet_inference_node:main',
+            'movenet_postprocessing_node = sancho_perception.movenet_postprocessing_node:main',
         ],
     },
 )
