@@ -127,7 +127,7 @@ controller_server:
       # Si es base omnidireccional y quieres movimiento en Y, pon max_vel_y > 0
       min_vel_y: 0.0
       max_vel_y: 0.0   # Cambia si quieres moverte en Y
-      min_vel_theta: 0.2  
+      min_vel_theta: 0.0
       max_vel_theta: 0.8
       theta_stopped_velocity: 0.1
       min_speed_xy: 0.0
@@ -375,7 +375,7 @@ velocity_smoother:
     use_sim_time: False
     smoothing_frequency: 20.0
     max_velocity: [0.35, 0.0, 0.8]
-    min_velocity: [0.0, 0.0, 0.2] # min theta > 0 para evitar giros mínimos
+    min_velocity: [0.0, 0.0, 0.0] # min theta > 0 para evitar giros mínimos
     max_accel: [0.5, 0.0, 0.5] # Reducir aceleración angular para movimientos más controlados
     max_decel: [-0.5, 0.0, -0.5]
     feedback: "OPEN_LOOP"
