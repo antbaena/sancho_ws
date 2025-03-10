@@ -7,8 +7,8 @@ amcl:
     odom_frame_id: "odom"
     base_frame_id: "base_link"
     scan_topic: "/scan_1st"
-    min_particles: 100
-    max_particles: 5000
+    min_particles: 500
+    max_particles: 8000
     alpha1: 0.2
     alpha2: 0.2
     alpha3: 0.2
@@ -18,10 +18,10 @@ amcl:
     laser_model_type: "likelihood_field"
     laser_max_range: 100.0
     laser_min_range: -1.0
-    update_min_d: 0.05
-    update_min_a: 0.05
-    resample_interval: 1
-    transform_tolerance: 0.1
+    update_min_d: 0.02
+    update_min_a: 0.02
+    resample_interval: 0.2
+    transform_tolerance: 0.05
     recovery_alpha_slow: 0.001
     recovery_alpha_fast: 0.1
     initial_pose_x: 0.0
@@ -40,8 +40,8 @@ bt_navigator:
     global_frame: map
     robot_base_frame: base_link
     odom_topic: /odom
-    bt_loop_duration: 10
-    default_server_timeout: 20
+    bt_loop_duration: 5
+    default_server_timeout: 10
     enable_groot_monitoring: True
     groot_zmq_publisher_port: 1666
     groot_zmq_server_port: 1667
@@ -123,31 +123,31 @@ controller_server:
       debug_trajectory_details: True
       # Velocidades mínimas/máximas
       min_vel_x: 0.0
-      max_vel_x: 0.5
+      max_vel_x: 0.35
       # Si es base omnidireccional y quieres movimiento en Y, pon max_vel_y > 0
       min_vel_y: 0.0
       max_vel_y: 0.0   # Cambia si quieres moverte en Y
-      max_vel_theta: 1.0
+      max_vel_theta: 0.8
       min_speed_xy: 0.0
       max_speed_xy: 0.26
       min_speed_theta: 0.0
 
       # Aceleraciones
-      acc_lim_x: 4.5
+      acc_lim_x: 1.0
       acc_lim_y: 0.0
       acc_lim_theta: 3.2
-      decel_lim_x: -4.5
+      decel_lim_x: -1.5
       decel_lim_y: 0.0
       decel_lim_theta: -3.2
 
       # Muestreo
-      vx_samples: 20
+      vx_samples: 30
       vy_samples: 5
-      vtheta_samples: 20
+      vtheta_samples: 30
 
-      sim_time: 1.7
-      linear_granularity: 0.05
-      angular_granularity: 0.025
+      sim_time: 1.5
+      linear_granularity: 0.02
+      angular_granularity: 0.015
       transform_tolerance: 0.5
       xy_goal_tolerance: 0.25
       trans_stopped_velocity: 0.25
@@ -156,7 +156,7 @@ controller_server:
 
       # Critic plugins
       critics: ["RotateToGoal", "Oscillation", "BaseObstacle", "GoalAlign", "PathAlign", "PathDist", "GoalDist"]
-      BaseObstacle.scale: 0.02
+      BaseObstacle.scale: 0.1
       PathAlign.scale: 32.0
       PathAlign.forward_point_distance: 0.1
       GoalAlign.scale: 24.0
@@ -182,8 +182,8 @@ planner_server:
     GridBased:
       plugin: "nav2_navfn_planner/NavfnPlanner"
       tolerance: 0.5
-      use_astar: false
-      allow_unknown: true
+      use_astar: true
+      allow_unknown: false
 
 planner_server_rclcpp_node:
   ros__parameters:
@@ -257,9 +257,9 @@ global_costmap:
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         enabled: true
-        inflation_radius: 0.55
-        cost_scaling_factor: 1.0
-        inflate_unknown: false
+        inflation_radius: 0.6
+        cost_scaling_factor: 2.0
+        inflate_unknown: true
         inflate_around_unknown: true  # Pon en false si no quieres inflar celdas desconocidas
 
       # Proxemics layer
@@ -288,12 +288,12 @@ local_costmap:
       transform_tolerance: 0.2
 
       rolling_window: true
-      width: 3
-      height: 3
+      width: 5
+      height: 5
 
       # Frecuencias del local costmap
-      update_frequency: 5.0
-      publish_frequency: 2.0
+      update_frequency: 20.0
+      publish_frequency: 10.0
 
       robot_radius: 0.22
       footprint_padding: 0.03
@@ -328,9 +328,9 @@ local_costmap:
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         enabled: true
-        inflation_radius: 0.55
-        cost_scaling_factor: 1.0
-        inflate_unknown: false
+        inflation_radius: 0.65
+        cost_scaling_factor: 2.5
+        inflate_unknown: true
         inflate_around_unknown: true
 
       # Proxemics layer local
@@ -351,7 +351,7 @@ behavior_server:
     use_sim_time: False
     costmap_topic: "local_costmap/costmap_raw"
     footprint_topic: "local_costmap/published_footprint"
-    cycle_frequency: 10.0
+    cycle_frequency: 20.0
     behavior_plugins: ["spin", "backup", "wait"]
     spin:
       plugin: "nav2_behaviors/Spin"
@@ -363,6 +363,48 @@ behavior_server:
     robot_base_frame: "base_link"
     transform_timeout: 0.1
     simulate_ahead_time: 2.0
-    max_rotational_vel: 1.0
+    max_rotational_vel: 0.8
     min_rotational_vel: 0.4
-    rotational_acc_lim: 3.2
+    rotational_acc_lim: 1.5
+
+# Velocity Smoother Plugin
+velocity_smoother:
+  ros__parameters:
+    smoothing_frequency: 20.0
+    max_velocity: [0.35, 0.0, 0.8]   # [x, y, theta]
+    min_velocity: [0.0, 0.0, 0.0]
+    max_accel: [0.5, 0.0, 1.0]
+    max_decel: [-0.5, 0.0, -1.0]
+    feedback: "OPEN_LOOP"
+
+# Collision Monitor Plugin
+collision_monitor:
+  ros__parameters:
+    base_frame_id: "base_link"
+    odom_frame_id: "odom"
+    cmd_vel_in_topic: "cmd_vel_raw"
+    cmd_vel_out_topic: "cmd_vel"
+    transform_tolerance: 0.1
+    source_timeout: 0.2
+    stop_pub_timeout: 0.5
+    obstacle_sources: ["laser_front", "laser_back"]
+    laser_front:
+      type: "scan"
+      topic: "/scan_1st"
+      min_height: 0.0
+      max_height: 2.0
+    laser_back:
+      type: "scan"
+      topic: "/scan_2nd"
+      min_height: 0.0
+      max_height: 2.0
+    polygons:
+      stop_zone:
+        type: "polygon"
+        points: [[0.3, 0.3], [0.3, -0.3], [-0.3, -0.3], [-0.3, 0.3]]
+        action_type: "stop"
+      slow_zone:
+        type: "polygon"
+        points: [[0.8, 0.6], [0.8, -0.6], [-0.4, -0.6], [-0.4, 0.6]]
+        action_type: "slowdown"
+        slowdown_ratio: 0.5

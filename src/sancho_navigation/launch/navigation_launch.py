@@ -12,6 +12,25 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
+         # Velocity Smoother
+        Node(
+            package='nav2_velocity_smoother',
+            executable='velocity_smoother',
+            name='velocity_smoother',
+            parameters=[nav2_params_path],
+            remappings=[('cmd_vel', 'cmd_vel_raw'),
+                        ('cmd_vel_smoothed', 'cmd_vel_smoothed')]
+        ),
+
+        # Collision Monitor
+        Node(
+            package='nav2_collision_monitor',
+            executable='collision_monitor',
+            name='collision_monitor',
+            parameters=[nav2_params_path],
+            remappings=[('cmd_vel_in', 'cmd_vel_smoothed'),
+                        ('cmd_vel_out', 'cmd_vel')]
+        ),
         # Nodo de mapa
         Node(
             package='nav2_map_server',
