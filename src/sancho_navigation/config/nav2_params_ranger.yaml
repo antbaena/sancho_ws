@@ -370,41 +370,48 @@ behavior_server:
 # Velocity Smoother Plugin
 velocity_smoother:
   ros__parameters:
+    use_sim_time: False
     smoothing_frequency: 20.0
-    max_velocity: [0.35, 0.0, 0.8]   # [x, y, theta]
+    max_velocity: [0.35, 0.0, 0.8]
     min_velocity: [0.0, 0.0, 0.0]
     max_accel: [0.5, 0.0, 1.0]
     max_decel: [-0.5, 0.0, -1.0]
     feedback: "OPEN_LOOP"
 
+
 # Collision Monitor Plugin
 collision_monitor:
   ros__parameters:
+    use_sim_time: False
     base_frame_id: "base_link"
     odom_frame_id: "odom"
-    cmd_vel_in_topic: "cmd_vel_raw"
+    cmd_vel_in_topic: "cmd_vel_smoothed"
     cmd_vel_out_topic: "cmd_vel"
     transform_tolerance: 0.1
     source_timeout: 0.2
     stop_pub_timeout: 0.5
-    obstacle_sources: ["laser_front", "laser_back"]
-    laser_front:
+
+    polygons:
+      - name: "stop_zone"
+        type: "polygon"
+        points: "[[0.3, 0.3], [0.3, -0.3], [-0.3, -0.3], [-0.3, 0.3]]"
+        action_type: "stop"
+
+      - name: "slow_zone"
+        type: "polygon"
+        points: "[[0.8, 0.6], [0.8, -0.6], [-0.4, -0.6], [-0.4, 0.6]]"
+        action_type: "slowdown"
+        slowdown_ratio: 0.5
+
+    observation_sources: ["scan_front", "scan_back"]
+    scan_front:
       type: "scan"
       topic: "/scan_1st"
       min_height: 0.0
       max_height: 2.0
-    laser_back:
+
+    scan_back:
       type: "scan"
       topic: "/scan_2nd"
       min_height: 0.0
       max_height: 2.0
-    polygons:
-      stop_zone:
-        type: "polygon"
-        points: [[0.3, 0.3], [0.3, -0.3], [-0.3, -0.3], [-0.3, 0.3]]
-        action_type: "stop"
-      slow_zone:
-        type: "polygon"
-        points: [[0.8, 0.6], [0.8, -0.6], [-0.4, -0.6], [-0.4, 0.6]]
-        action_type: "slowdown"
-        slowdown_ratio: 0.5
