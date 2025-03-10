@@ -1,0 +1,5 @@
+std_msgs/String cmd_type
+std_msgs/String args # JSON Dictionary
+---
+int32 result
+std_msgs/String message

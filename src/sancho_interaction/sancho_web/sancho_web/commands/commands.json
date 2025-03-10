@@ -1,0 +1,62 @@
+{
+    "help": {
+        "description": "Proporciona ayuda sobre el resto de comandos",
+        "arguments": "No tiene",
+        "usage": "/help"
+    },
+    "clear": {
+        "description": "Limpia el resultado de los comandos",
+        "arguments": "No tiene",
+        "usage": "/clear"
+    },
+    "delete": {
+        "description": "Elimina la clase indicada",
+        "arguments": "clase: La clase que se desea eliminar",
+        "usage": "/delete <clase>"
+    },
+    "block": {
+        "description": "Bloquea los motores indicados",
+        "arguments": "Cada argumento es un motor a bloquear. Los motores son head_rotation, body_rotation y body_movement. También puedes usar all para bloquear todos.",
+        "usage": "/block <motor1> <motor2> <motor3>..."
+    },
+    "unblock": {
+        "description": "Desbloquea los motores indicados",
+        "arguments": "Cada argumento es un motor a desbloquear. Los motores son head_rotation, body_rotation y body_movement. También puedes usar all para desbloquear todos.",
+        "usage": "/unblock <motor1> <motor2> <motor3>..."
+    },
+    "rename": {
+        "description": "Renombra una clase existente por una nueva",
+        "arguments": "clase_actual: La clase a renombrar, clase_nueva: El nombre nuevo",
+        "usage": "/rename <clase_actual> <clase_nueva>"
+    },
+    "kill": {
+        "description": "Mata el cuerpo de Sancho usando fisicamente la cabeza.",
+        "arguments": "No tiene",
+        "usage": "/kill"
+    },
+    "movebody": {
+        "description": "Mueve el robot según la distancia en metros indicada",
+        "arguments": "mov_x: distancia en metros, mode: puede ser absolute (mueve a mov_x en su sistema de referencia) o relative (añade mov_x a su posición actual).",
+        "usage": "/movebody <mov_x> <mode>"
+    },
+    "rotbody": {
+        "description": "Rota el robot según el ángulo en radianes indicado",
+        "arguments": "rot_z: ángulo en radianes, mode: puede ser absolute (rota a rot_z en su sistema de referencia) o relative (añade rot_z a su rotacion actual).",
+        "usage": "/rotbody <rot_z> <mode>"
+    },
+    "rothead": {
+        "description": "Rota la cabeza del robot a un determinado pan y tilt",
+        "arguments": "pan: posicion en radianes en el eje x. tilt: posicion en radianes en el eje y. type: puede ser head (solo mueve cabeza) o body (acompaña con cuerpo)",
+        "usage": "/rothead <pan> <tilt> <type>"
+    },
+    "dance": {
+        "description": "Produce una serie de movimientos de todo tipo en el robot de manera controlada",
+        "arguments": "No tiene",
+        "usage": "/dance"
+    },
+    "speak": {
+        "description": "Hace que el robot lea con voz el texto introducido",
+        "arguments": "text: texto a leer",
+        "usage": "/speak <text>"
+    }
+}

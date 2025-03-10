@@ -25,6 +25,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+            'roaming_node = sancho_navigation.roaming_node:main',
         ],
     },
 )

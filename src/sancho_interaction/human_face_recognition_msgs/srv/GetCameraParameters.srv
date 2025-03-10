@@ -1,0 +1,8 @@
+# GetCameraParameters.srv
+
+
+---
+# Response
+float64[] camera_matrix
+float64[] camera_matrix_inv
+float64[] dist_coeffs
