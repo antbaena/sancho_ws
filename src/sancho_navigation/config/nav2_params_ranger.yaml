@@ -109,14 +109,7 @@ controller_server:
       stateful: True
       plugin: "nav2_controller::SimpleGoalChecker"
       xy_goal_tolerance: 0.25
-      yaw_goal_tolerance: 0.25
-
-    # Si lo necesitas, define la "precise_goal_checker" también
-    # precise_goal_checker:
-    #   plugin: "nav2_controller::SimpleGoalChecker"
-    #   xy_goal_tolerance: 0.25
-    #   yaw_goal_tolerance: 0.25
-    #   stateful: True
+      yaw_goal_tolerance: 0.5   # Mayor tolerancia para evitar microajustes
 
     FollowPath:
       plugin: "dwb_core::DWBLocalPlanner"
@@ -124,32 +117,31 @@ controller_server:
       # Velocidades mínimas/máximas
       min_vel_x: 0.0
       max_vel_x: 0.35
-      # Si es base omnidireccional y quieres movimiento en Y, pon max_vel_y > 0
       min_vel_y: 0.0
-      max_vel_y: 0.0   # Cambia si quieres moverte en Y
-      min_vel_theta: 0.0
-      max_vel_theta: 0.8
+      max_vel_y: 0.0   # Sin movimiento lateral (comportamiento diferencial)
+      min_vel_theta: 0.1   # Evitar giros muy pequeños
+      max_vel_theta: 0.5   # Reducido para giros más controlados
       theta_stopped_velocity: 0.1
       min_speed_xy: 0.0
       max_speed_xy: 0.26
-      min_speed_theta: 0.0
+      min_speed_theta: 0.1   # Establece una velocidad mínima de rotación
 
       # Aceleraciones
       acc_lim_x: 1.0
       acc_lim_y: 0.0
-      acc_lim_theta: 1.2
+      acc_lim_theta: 0.8   # Menor aceleración angular para transiciones suaves
       decel_lim_x: -1.5
       decel_lim_y: 0.0
-      decel_lim_theta: -1.2
+      decel_lim_theta: -0.8  # Menor desaceleración angular
 
       # Muestreo
       vx_samples: 30
       vy_samples: 5
-      vtheta_samples: 30
+      vtheta_samples: 20    # Menos muestras para evitar microajustes
 
       sim_time: 1.5
       linear_granularity: 0.02
-      angular_granularity: 0.015
+      angular_granularity: 0.03   # Mayor granularidad angular para reducir ajustes finos
       transform_tolerance: 0.5
       xy_goal_tolerance: 0.25
       trans_stopped_velocity: 0.25
@@ -166,7 +158,7 @@ controller_server:
       PathDist.scale: 32.0
       GoalDist.scale: 24.0
       RotateToGoal.scale: 32.0
-      RotateToGoal.slowing_factor: 5.0
+      RotateToGoal.slowing_factor: 2.0   # Menor desaceleración al acercarse a la meta
       RotateToGoal.lookahead_time: -1.0
 
 controller_server_rclcpp_node:
@@ -259,10 +251,10 @@ global_costmap:
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         enabled: true
-        inflation_radius: 0.6
-        cost_scaling_factor: 2.0
+        inflation_radius: 1.0     # Incrementado para favorecer trayectorias suaves
+        cost_scaling_factor: 2.5  # Gradiente de coste más suave
         inflate_unknown: true
-        inflate_around_unknown: true  # Pon en false si no quieres inflar celdas desconocidas
+        inflate_around_unknown: true
 
       # Proxemics layer
       proxemics_layer:
@@ -330,7 +322,7 @@ local_costmap:
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         enabled: true
-        inflation_radius: 0.65
+        inflation_radius: 0.8     # Incrementado ligeramente para mayor suavidad
         cost_scaling_factor: 2.5
         inflate_unknown: true
         inflate_around_unknown: true
@@ -365,18 +357,18 @@ behavior_server:
     robot_base_frame: "base_link"
     transform_timeout: 0.1
     simulate_ahead_time: 2.0
-    max_rotational_vel: 0.8
-    min_rotational_vel: 0.2
-    rotational_acc_lim: 1.5
+    max_rotational_vel: 0.5    # Reducido para giros más controlados
+    min_rotational_vel: 0.3    # Incrementado para evitar giros demasiado lentos
+    rotational_acc_lim: 1.0    # Menor aceleración en rotación para suavizar el giro
 
 # Velocity Smoother Plugin
 velocity_smoother:
   ros__parameters:
     use_sim_time: False
     smoothing_frequency: 20.0
-    max_velocity: [0.35, 0.0, 0.8]
-    min_velocity: [0.0, 0.0, 0.0] # min theta > 0 para evitar giros mínimos
-    max_accel: [0.5, 0.0, 1.0] # Reducir aceleración angular para movimientos más controlados
+    max_velocity: [0.35, 0.0, 0.5]   # Velocidad angular reducida
+    min_velocity: [0.0, 0.0, 0.1]    # Se establece un mínimo para evitar micro giros
+    max_accel: [0.5, 0.0, 1.0]
     max_decel: [-0.5, 0.0, -1.0]
     feedback: "OPEN_LOOP"
 
@@ -403,7 +395,6 @@ collision_monitor:
         points: "[[0.8, 0.6], [0.8, -0.6], [-0.4, -0.6], [-0.4, 0.6]]"
         action_type: "slowdown"
         
-
     observation_sources: ["scan_front", "scan_back"]
     scan_front:
       type: "scan"
