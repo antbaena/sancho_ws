@@ -137,10 +137,10 @@ controller_server:
       # Aceleraciones
       acc_lim_x: 1.0
       acc_lim_y: 0.0
-      acc_lim_theta: 3.2
+      acc_lim_theta: 1.2
       decel_lim_x: -1.5
       decel_lim_y: 0.0
-      decel_lim_theta: -3.2
+      decel_lim_theta: -1.2
 
       # Muestreo
       vx_samples: 30
@@ -366,7 +366,7 @@ behavior_server:
     transform_timeout: 0.1
     simulate_ahead_time: 2.0
     max_rotational_vel: 0.8
-    min_rotational_vel: 0.4
+    min_rotational_vel: 0.2
     rotational_acc_lim: 1.5
 
 # Velocity Smoother Plugin
