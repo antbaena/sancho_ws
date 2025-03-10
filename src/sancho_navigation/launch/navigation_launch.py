@@ -17,6 +17,8 @@ def generate_launch_description():
             package='nav2_velocity_smoother',
             executable='velocity_smoother',
             name='velocity_smoother',
+            prefix="xterm -hold -e",
+            emulate_tty=True,
             parameters=[nav2_params_path],
             remappings=[('cmd_vel', 'cmd_vel_raw'),
                         ('cmd_vel_smoothed', 'cmd_vel_smoothed')]
@@ -27,6 +29,8 @@ def generate_launch_description():
             package='nav2_collision_monitor',
             executable='collision_monitor',
             name='collision_monitor',
+            prefix="xterm -hold -e",
+            emulate_tty=True,
             parameters=[nav2_params_path],
             remappings=[('cmd_vel_in', 'cmd_vel_smoothed'),
                         ('cmd_vel_out', 'cmd_vel')]
@@ -114,7 +118,9 @@ def generate_launch_description():
                     'planner_server',
                     'controller_server',
                     'behavior_server',
-                    'bt_navigator'
+                    'bt_navigator',
+                    'velocity_smoother',
+                    'collision_monitor'
                 ]
             }]
         )
