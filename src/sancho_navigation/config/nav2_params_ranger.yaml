@@ -91,7 +91,7 @@ controller_server:
     controller_frequency: 20.0
     min_x_velocity_threshold: 0.5
     min_y_velocity_threshold: 0.5
-    min_theta_velocity_threshold: 0.5
+    min_theta_velocity_threshold: 0.2
     failure_tolerance: 0.3
 
     progress_checker_plugin: "progress_checker"
@@ -376,8 +376,8 @@ velocity_smoother:
     smoothing_frequency: 20.0
     max_velocity: [0.35, 0.0, 0.8]
     min_velocity: [0.0, 0.0, 0.0] # min theta > 0 para evitar giros mínimos
-    max_accel: [0.5, 0.0, 0.5] # Reducir aceleración angular para movimientos más controlados
-    max_decel: [-0.5, 0.0, -0.5]
+    max_accel: [0.5, 0.0, 1.0] # Reducir aceleración angular para movimientos más controlados
+    max_decel: [-0.5, 0.0, -1.0]
     feedback: "OPEN_LOOP"
 
 # Collision Monitor Plugin
