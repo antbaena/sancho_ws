@@ -68,10 +68,11 @@ def generate_launch_description():
             package='nav2_controller',
             executable='controller_server',
             name='controller_server',
-           output='screen',
+            output='screen',
             prefix="xterm -hold -e",
             emulate_tty=True,
-            parameters=[nav2_params_path]
+            parameters=[nav2_params_path],
+            remappings=[('cmd_vel', 'cmd_vel_raw')]  # Importante redirigir salida al velocity smoother
         ),
 
         # Nodo de comportamiento basado en árboles de decisión (BT Navigator)
