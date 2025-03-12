@@ -43,8 +43,8 @@ class PTUHumanMotion(Node):
         self.TILT_MAX = 0.2   # rango máximo para tilt (ligero hacia arriba)
         
         # Intervalos de tiempo aleatorios (segundos)
-        self.MIN_INTERVAL = 2.0
-        self.MAX_INTERVAL = 5.0
+        self.MIN_INTERVAL = 5.0
+        self.MAX_INTERVAL = 10.0
         
         self.timer = None
         self.schedule_next_move()
@@ -58,8 +58,8 @@ class PTUHumanMotion(Node):
         request.name = 'turret'
         request.mode = 'position'
         request.profile_type = 'time'
-        request.profile_velocity = 1000  # Ajusta según necesites
-        request.profile_acceleration = 500  # Ajusta según necesites
+        request.profile_velocity = 500  # Ajusta según necesites
+        request.profile_acceleration = 250  # Ajusta según necesites
 
         self.get_logger().info("Configurando modo de operación de la torreta...")
         future = self.client_operating_modes.call_async(request)
