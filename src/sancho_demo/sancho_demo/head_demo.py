@@ -32,7 +32,10 @@ class PTUHumanMotion(Node):
         )
         while not self.client_operating_modes.wait_for_service(timeout_sec=1.0):
             self.get_logger().warning("Head service not available, waiting...")
-                
+        
+        # Inicializar modo de operación y velocidad
+        self.init_head()
+        
         # Parámetros para movimiento natural
         self.PAN_MIN = -0.5   # rango mínimo para pan (izquierda)
         self.PAN_MAX = 0.5    # rango máximo para pan (derecha)
@@ -47,6 +50,29 @@ class PTUHumanMotion(Node):
         self.schedule_next_move()
         
         self.get_logger().info("Nodo PTU para imitación de movimiento humano iniciado.")
+
+    def init_head(self):
+        """ Configura la torreta en modo de posición con velocidad y aceleración inicializadas """
+        request = OperatingModes.Request()
+        request.cmd_type = 'group'
+        request.name = 'turret'
+        request.mode = 'position'
+        request.profile_type = 'time'
+        request.profile_velocity = 1000  # Ajusta según necesites
+        request.profile_acceleration = 500  # Ajusta según necesites
+
+        self.get_logger().info("Configurando modo de operación de la torreta...")
+        future = self.client_operating_modes.call_async(request)
+        rclpy.spin_until_future_complete(self, future)
+
+        if future.result() is not None:
+            self.get_logger().info("Modo de operación configurado con éxito. Respuesta: %s" % future.result())
+        else:
+            self.get_logger().error("Error al configurar el modo de operación.")
+
+        # Posición inicial de la torreta
+        self.pub_joint_command.publish(JointGroupCommand(name='turret', cmd=[0, 0]))
+        self.get_logger().info("Torreta inicializada en posición neutral.")
 
     def joint_state_callback(self, msg: JointState):
         # Procesamiento del estado de la cabeza (puedes ampliarlo según tus necesidades)
