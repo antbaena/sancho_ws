@@ -124,7 +124,7 @@ controller_server:
       theta_stopped_velocity: 0.1
       min_speed_xy: 0.0
       max_speed_xy: 0.26
-      min_speed_theta: 0.1   # Establece una velocidad mínima de rotación
+      min_speed_theta: 0.0   # Establece una velocidad mínima de rotación
 
       # Aceleraciones
       acc_lim_x: 1.0
@@ -233,7 +233,7 @@ global_costmap:
         footprint_clearing_enabled: true
         max_obstacle_height: 2.0
         combination_method: 1
-        observation_sources: "laser_front laser_back"
+        observation_sources: "laser_front laser_back camera_depth"
 
         laser_front:
           topic: "/scan_1st"
@@ -243,6 +243,12 @@ global_costmap:
 
         laser_back:
           topic: "/scan_2nd"
+          max_obstacle_height: 2.0
+          clearing: True
+          marking: True
+        
+        camera_depth:
+          topic: "/scan_camera"
           max_obstacle_height: 2.0
           clearing: True
           marking: True
@@ -304,7 +310,7 @@ local_costmap:
         footprint_clearing_enabled: true
         max_obstacle_height: 2.0
         combination_method: 1
-        observation_sources: "laser_front laser_back"
+        observation_sources: "laser_front laser_back camera_depth"
 
         laser_front:
           topic: "/scan_1st"
@@ -314,6 +320,12 @@ local_costmap:
 
         laser_back:
           topic: "/scan_2nd"
+          max_obstacle_height: 2.0
+          clearing: True
+          marking: True
+        
+        camera_depth:
+          topic: "/scan_camera"
           max_obstacle_height: 2.0
           clearing: True
           marking: True
@@ -366,11 +378,12 @@ velocity_smoother:
   ros__parameters:
     use_sim_time: False
     smoothing_frequency: 20.0
-    max_velocity: [0.35, 0.0, 0.5]   # Velocidad angular reducida
-    min_velocity: [0.0, 0.0, 0.1]    # Se establece un mínimo para evitar micro giros
+    max_velocity: [0.35, 0.0, 0.5]
+    deadband: [0.0, 0.0, 0.15]  # El angular deadband evita micro giros inferiores a 0.1 rad/s
     max_accel: [0.5, 0.0, 1.0]
     max_decel: [-0.5, 0.0, -1.0]
     feedback: "OPEN_LOOP"
+
 
 # Collision Monitor Plugin
 collision_monitor:
@@ -395,7 +408,7 @@ collision_monitor:
         points: "[[0.8, 0.6], [0.8, -0.6], [-0.4, -0.6], [-0.4, 0.6]]"
         action_type: "slowdown"
         
-    observation_sources: ["scan_front", "scan_back"]
+    observation_sources: ["scan_front", "scan_back", "camera_depth"]
     scan_front:
       type: "scan"
       topic: "/scan_1st"
@@ -405,5 +418,11 @@ collision_monitor:
     scan_back:
       type: "scan"
       topic: "/scan_2nd"
+      min_height: 0.0
+      max_height: 2.0
+
+    camera_depth:
+      type: "depth"
+      topic: "/scan_camera"
       min_height: 0.0
       max_height: 2.0

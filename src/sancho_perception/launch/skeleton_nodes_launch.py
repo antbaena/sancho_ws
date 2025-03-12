@@ -46,8 +46,9 @@ def generate_launch_description():
         }],
         remappings=[
             # Se remapean los nombres de los topics internos a los de tu sensor:
-            ('camera_info', '/camera/depth/camera_info'),
-            ('depth', '/camera/depth/image_raw')
+            ('depth_camera_info', '/camera/depth/camera_info'),
+            ('depth', '/camera/depth/image_raw'),
+            ('scan', '/scan_camera')
         ],
         output='screen',
         prefix="xterm -hold -e",

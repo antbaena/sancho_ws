@@ -84,11 +84,11 @@ class DynamixelDriver
   DynamixelDriver();
   ~DynamixelDriver();
 
-  bool init(const char* device_name = "/dev/interbotix_head", 
+  bool init(const char* device_name = "/dev/ttyUSB0", 
             uint32_t baud_rate = 57600, 
             const char **log = NULL);
 
-  bool begin(const char* device_name = "/dev/interbotix_head", 
+  bool begin(const char* device_name = "/dev/ttyUSB0", 
             uint32_t baud_rate = 57600, 
             const char **log = NULL);
 

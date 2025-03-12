@@ -31,18 +31,8 @@ class PTUHumanMotion(Node):
             "/wxxms/set_operating_modes"
         )
         while not self.client_operating_modes.wait_for_service(timeout_sec=1.0):
-            self.get_logger().warning("Servicio de modos de operación no disponible, esperando...")
-        
-        # Ejemplo para configurar el modo de operación (descomentar si es necesario)
-        # try:
-        #     req = OperatingModes.Request()
-        #     req.operating_modes = [0, 0]  # Ajusta según tus necesidades
-        #     future = self.client_operating_modes.call_async(req)
-        #     rclpy.spin_until_future_complete(self, future)
-        #     self.get_logger().info("Modo de operación configurado correctamente.")
-        # except Exception as e:
-        #     self.get_logger().error(f"Error al configurar modo de operación: {e}")
-        
+            self.get_logger().warning("Head service not available, waiting...")
+                
         # Parámetros para movimiento natural
         self.PAN_MIN = -0.5   # rango mínimo para pan (izquierda)
         self.PAN_MAX = 0.5    # rango máximo para pan (derecha)
@@ -83,7 +73,7 @@ class PTUHumanMotion(Node):
             
             # Preparamos y enviamos el mensaje de comando
             msg = JointGroupCommand()
-            # Se asume que el primer elemento es para 'pan' y el segundo para 'tilt'
+            msg.name = "turret"  # Se especifica el grupo de articulaciones
             msg.cmd = [pan, tilt]
             self.pub_joint_command.publish(msg)
             self.get_logger().info(f"Movimiento enviado: pan = {pan:.2f}, tilt = {tilt:.2f}.")
