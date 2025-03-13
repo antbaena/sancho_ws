@@ -22,6 +22,13 @@ def generate_launch_description():
             '/urg_node2_2lidar.launch.py'])
     )
 
+    # Lanzar cámara Orbbec Gemini 330
+    orbbec_camera_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource([os.path.join(
+            get_package_share_directory('orbbec_camera'), 'launch'),
+            '/gemini_330_series.launch.py'])
+    )
+
     return LaunchDescription([
         # Publicar estado del robot desde URDF
         Node(
@@ -40,15 +47,15 @@ def generate_launch_description():
             output='screen'
         ),
 
-        #Camara astra
-        Node(
-            package='astra_camera',
-            executable='astra_camera_node',
-            name='astra_camera_node',
-            output='screen'
-        ),
+        # Cámara Astra
+        # Node(
+        #     package='astra_camera',
+        #     executable='astra_camera_node',
+        #     name='astra_camera_node',
+        #     output='screen'
+        # ),
 
-        #Camara usb
+        # Cámara USB
         Node(
             package="usb_cam",
             executable="usb_cam_node_exe",
@@ -70,7 +77,7 @@ def generate_launch_description():
             AnyLaunchDescriptionSource(os.path.join(ranger_bringup_path, 'launch', 'ranger_mini_v2.launch.xml'))
         ),
 
-
         # Iniciar sensores (LiDAR, cámaras, etc.)
         hokuyo_launch,
+        orbbec_camera_launch,
     ])

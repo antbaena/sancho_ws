@@ -422,7 +422,7 @@ collision_monitor:
       max_height: 2.0
 
     camera_depth:
-      type: "depth"
+      type: "scan"
       topic: "/scan_camera"
       min_height: 0.0
       max_height: 2.0
