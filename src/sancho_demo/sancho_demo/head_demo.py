@@ -37,8 +37,8 @@ class PTUHumanMotion(Node):
         self.init_head()
         
         # Parámetros para movimiento natural
-        self.PAN_MIN = -0.5   # rango mínimo para pan (izquierda)
-        self.PAN_MAX = 0.5    # rango máximo para pan (derecha)
+        self.PAN_MIN = -0.7   # rango mínimo para pan (izquierda)
+        self.PAN_MAX = 0.7   # rango máximo para pan (derecha)
         self.TILT_MIN = -0.2  # rango mínimo para tilt (ligero hacia abajo)
         self.TILT_MAX = 0.2   # rango máximo para tilt (ligero hacia arriba)
         
@@ -58,8 +58,8 @@ class PTUHumanMotion(Node):
         request.name = 'turret'
         request.mode = 'position'
         request.profile_type = 'time'
-        request.profile_velocity = 500  # Ajusta según necesites
-        request.profile_acceleration = 250  # Ajusta según necesites
+        request.profile_velocity = 2000  # Ajusta según necesites
+        request.profile_acceleration = 1000  # Ajusta según necesites
 
         self.get_logger().info("Configurando modo de operación de la torreta...")
         future = self.client_operating_modes.call_async(request)
