@@ -40,8 +40,33 @@ def generate_launch_description():
             output='screen'
         ),
 
+        #Camara astra
+        Node(
+            package='astra_camera',
+            executable='astra_camera_node',
+            name='astra_camera_node',
+            output='screen'
+        ),
+
+        #Camara usb
+        Node(
+            package="usb_cam",
+            executable="usb_cam_node_exe",
+            name="usb_cam_node",
+            output="screen",
+            prefix="xterm -hold -e",
+            emulate_tty=True,
+            parameters=[
+                os.path.join(
+                    get_package_share_directory("sancho_bringup"),
+                    "config",
+                    "params_low.yaml",
+                )
+            ],
+        ),
+
         # Incluir el launch de la base móvil
-         IncludeLaunchDescription(
+        IncludeLaunchDescription(
             AnyLaunchDescriptionSource(os.path.join(ranger_bringup_path, 'launch', 'ranger_mini_v2.launch.xml'))
         ),
 
