@@ -36,7 +36,7 @@ def generate_launch_description():
         executable='depthimage_to_laserscan_node',  # Verifica el nombre del ejecutable según la documentación
         name='depthimage_to_laserscan',
         parameters=[{
-            'output_frame': 'base_link',   # Ajusta según tu configuración de TF
+            'output_frame': 'camera_link',   # Ajusta según tu configuración de TF
             'range_min': 0.1,              # Rango mínimo (ajusta según tu sensor)
             'range_max': 10.0,             # Rango máximo (ajusta según tu sensor)
             'scan_height': 5,              # Número de filas de la imagen a usar para la conversión
