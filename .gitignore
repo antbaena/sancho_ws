@@ -159,3 +159,6 @@ rosbag2_2025_02_07-14_41_01/rosbag2_2025_02_07-14_41_01_0.db3
 /log
 log/latest_list
 log/latest_list
+certs/*.pem
+/log
+/nginx/certs
