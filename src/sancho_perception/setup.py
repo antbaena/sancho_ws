@@ -24,7 +24,8 @@ setup(
         'console_scripts': [
             'movenet_inference_node = sancho_perception.movenet_inference_node:main',
             'movenet_postprocessing_node = sancho_perception.movenet_postprocessing_node:main',
-            'group_detection_node = sancho_perception.group_detection_navigator_node:main',
+            'group_detection_node = sancho_perception.group_detection_node:main',
+            'group_navigation_node = sancho_perception.group_navigation_node:main',
         ],
     },
 )

@@ -49,28 +49,28 @@ def generate_launch_description():
 
         # Cámara Astra
         # Node(
-        #     package='astra_camera',
-        #     executable='astra_camera_node',
-        #     name='astra_camera_node',
-        #     output='screen'
-        # ),
+        #      package='astra_camera',
+        #      executable='astra_camera_node',
+        #      name='astra_camera_node',
+        #      output='screen'
+        #  ),
 
         # Cámara USB
-        Node(
-            package="usb_cam",
-            executable="usb_cam_node_exe",
-            name="usb_cam_node",
-            output="screen",
-            prefix="xterm -hold -e",
-            emulate_tty=True,
-            parameters=[
-                os.path.join(
-                    get_package_share_directory("sancho_bringup"),
-                    "config",
-                    "params_low.yaml",
-                )
-            ],
-        ),
+        # Node(
+        #     package="usb_cam",
+        #     executable="usb_cam_node_exe",
+        #     name="usb_cam_node",
+        #     output="screen",
+        #     prefix="xterm -hold -e",
+        #     emulate_tty=True,
+        #     parameters=[
+        #         os.path.join(
+        #             get_package_share_directory("sancho_bringup"),
+        #             "config",
+        #             "params_low.yaml",
+        #         )
+        #     ],
+        # ),
 
         # Incluir el launch de la base móvil
         IncludeLaunchDescription(
@@ -79,5 +79,5 @@ def generate_launch_description():
 
         # Iniciar sensores (LiDAR, cámaras, etc.)
         hokuyo_launch,
-        orbbec_camera_launch,
+        # orbbec_camera_launch,
     ])
