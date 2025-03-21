@@ -83,10 +83,12 @@ class GroupDetectionNode(Node):
         self.current_group_radius = None      # Radio del grupo (float)
         self.group_start_time = None        # Tiempo en que se inició el seguimiento del grupo
         self.last_detection_time = None     # Última vez en que se detectó el grupo
+        self.last_msg_timestamp = None        # Timestamp del último mensaje recibido
+
         self.group_active = False           # Indica si el grupo ya fue publicado
 
         # Timer para comprobar la persistencia del grupo
-        self.create_timer(check_period, self.timer_callback)
+        # self.create_timer(check_period, self.timer_callback)
 
     def poses_callback(self, msg: PoseArray):
         
@@ -147,14 +149,13 @@ class GroupDetectionNode(Node):
         distances = np.linalg.norm(cluster_points - centroid, axis=1)
         radius = float(np.max(distances))
 
-        timestamp = rclpy.time.Time.from_msg(msg.header.stamp)
-        self.last_detection_time = timestamp
+   
 
         if self.current_group_centroid is None:
             # Iniciar seguimiento de un nuevo grupo
             self.current_group_centroid = centroid
             self.current_group_radius = radius
-            self.group_start_time = timestamp
+            self.group_start_time = current_time
             self.group_active = False
             self.get_logger().info(f"Nuevo grupo detectado: centroide {centroid}, radio {radius:.2f}. Iniciando seguimiento.")
         else:
@@ -169,7 +170,7 @@ class GroupDetectionNode(Node):
                 self.get_logger().info(f"Grupo distinto detectado (distancia {dist:.2f} m). Reiniciando seguimiento.")
                 self.current_group_centroid = centroid
                 self.current_group_radius = radius
-                self.group_start_time = timestamp
+                self.group_start_time = current_time
                 self.group_active = False
 
         # Calcular el tiempo transcurrido usando el timestamp del mensaje actual y el de inicio
