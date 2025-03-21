@@ -198,11 +198,11 @@ class GroupDetectionNode(Node):
         group_msg = GroupInfo()
         group_msg.header.stamp = timestamp.to_msg()
         group_msg.header.frame_id = "map"  # Ajusta según tu configuración
-        group_msg.group_pose.position = Point(x=float(centroid[0]),
+        group_msg.pose.position = Point(x=float(centroid[0]),
                                         y=float(centroid[1]),
                                         z=0.0)
         # Orientación fija (por ejemplo, mirando hacia adelante)
-        group_msg.group_pose.orientation = Quaternion(x=0.0, y=0.0, z=0.0, w=1.0)
+        group_msg.pose.orientation = Quaternion(x=0.0, y=0.0, z=0.0, w=1.0)
         group_msg.radius = radius
         self.group_pub.publish(group_msg)
         self.get_logger().info(
