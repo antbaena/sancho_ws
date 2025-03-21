@@ -74,7 +74,7 @@ class GroupDetectionNode(Node):
 
 
         # Publicador para el grupo detectado (se usa PoseStamped para reutilizar la estructura de posición y orientación)
-        self.group_pub = self.create_publisher(PoseStamped, self.group_topic, 10)
+        self.group_pub = self.create_publisher(GroupInfo, self.group_topic, 10)
         # Subscripción a las poses de personas
         self.create_subscription(PoseArray, persons_topic , self.poses_callback, 10)
 
