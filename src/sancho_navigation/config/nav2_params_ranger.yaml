@@ -257,7 +257,7 @@ global_costmap:
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         enabled: true
-        inflation_radius: 1.0     # Incrementado para favorecer trayectorias suaves
+        inflation_radius: 0.5     # Incrementado para favorecer trayectorias suaves
         cost_scaling_factor: 2.5  # Gradiente de coste más suave
         inflate_unknown: true
         inflate_around_unknown: true
@@ -334,7 +334,7 @@ local_costmap:
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         enabled: true
-        inflation_radius: 0.8     # Incrementado ligeramente para mayor suavidad
+        inflation_radius: 0.2     # Incrementado ligeramente para mayor suavidad
         cost_scaling_factor: 2.5
         inflate_unknown: true
         inflate_around_unknown: true
