@@ -3,6 +3,15 @@
      asegurando que cada "collision" tenga el mismo <origin> que "visual". -->
 <robot name="ranger_mini_v3">
 
+  <!-- ==================== Base Footprint (nivel del suelo) ==================== -->
+  <link name="base_footprint"/>
+
+  <joint name="base_footprint_joint" type="fixed">
+    <parent link="base_footprint"/>
+    <child link="base_link"/>
+    <origin xyz="0 0 0.1" rpy="0 0 0"/> <!-- Eleva base_link 10 cm -->
+  </joint>
+
   <!-- ==================== base_link ==================== -->
   <link name="base_link">
     <inertial>

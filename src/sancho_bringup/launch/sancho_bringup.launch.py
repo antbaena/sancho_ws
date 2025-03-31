@@ -59,6 +59,13 @@ def generate_launch_description():
         )
     ])
 
+    ranger_launch = IncludeLaunchDescription(
+            XMLLaunchDescriptionSource(os.path.join(ranger_bringup_path, 'launch', 'ranger_mini_v2.launch.xml')),
+            launch_arguments={
+        'base_frame': 'base_footprint',
+        }.items()
+        )
+
     return LaunchDescription([
         # robot_state_publisher (URDF)
         Node(
@@ -75,10 +82,10 @@ def generate_launch_description():
             output='screen'
         ),
 
+
+
         # Launch de la base móvil Ranger
-        IncludeLaunchDescription(
-            XMLLaunchDescriptionSource(os.path.join(ranger_bringup_path, 'launch', 'ranger_mini_v2.launch.xml'))
-        ),
+        ranger_launch,
 
         # Lanzamiento de sensores
         hokuyo_launch,
