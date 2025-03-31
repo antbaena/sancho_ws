@@ -31,7 +31,7 @@
       <!-- Tenías rpy="3.14 0 0" en visual -->
       <origin xyz="0 0 0.0" rpy="3.14 0 0" />
       <geometry>
-        <mesh filename="package://sancho_description/meshes/ranger_mini3.dae" />
+        <mesh filename="package://sancho_description/meshes/ranger_mini3.stl" />
       </geometry>
       <material name="base_matte_gray">
         <color rgba="0.5 0.5 0.5 1.0" />
@@ -42,7 +42,7 @@
     <collision>
       <origin xyz="0 0 0.0" rpy="3.14 0 0" />
       <geometry>
-        <mesh filename="package://sancho_description/meshes/ranger_mini3.dae" />
+        <mesh filename="package://sancho_description/meshes/ranger_mini3.stl" />
       </geometry>
     </collision>
   </link>
@@ -65,7 +65,7 @@
     <visual>
       <origin xyz="-0.248 -0.113 0.155" rpy="1.57 0 3.14" />
       <geometry>
-        <mesh filename="package://sancho_description/meshes/ranger_mini_v3_wheel_right.dae" />
+        <mesh filename="package://sancho_description/meshes/ranger_mini_v3_wheel_right.stl" />
       </geometry>
       <material name="wheel_matte_gray">
         <color rgba="0.3 0.3 0.3 1.0" />
@@ -76,7 +76,7 @@
     <collision>
       <origin xyz="-0.248 -0.113 0.155" rpy="1.57 0 3.14" />
       <geometry>
-        <mesh filename="package://sancho_description/meshes/ranger_mini_v3_wheel_right.dae" />
+        <mesh filename="package://sancho_description/meshes/ranger_mini_v3_wheel_right.stl" />
       </geometry>
     </collision>
   </link>
@@ -106,7 +106,7 @@
     <visual>
       <origin xyz="-0.248 0.1265 0.191" rpy="-1.57 0.0 3.14" />
       <geometry>
-        <mesh filename="package://sancho_description/meshes/ranger_mini_v3_wheel.dae" />
+        <mesh filename="package://sancho_description/meshes/ranger_mini_v3_wheel.stl" />
       </geometry>
       <material name="wheel_matte_gray">
         <color rgba="0.3 0.3 0.3 1.0" />
@@ -117,7 +117,7 @@
     <collision>
       <origin xyz="-0.248 0.1265 0.191" rpy="-1.57 0.0 3.14" />
       <geometry>
-        <mesh filename="package://sancho_description/meshes/ranger_mini_v3_wheel.dae" />
+        <mesh filename="package://sancho_description/meshes/ranger_mini_v3_wheel.stl" />
       </geometry>
     </collision>
   </link>
@@ -147,7 +147,7 @@
     <visual>
       <origin xyz="-0.241 -0.11 0.155" rpy="1.57 0 3.14" />
       <geometry>
-        <mesh filename="package://sancho_description/meshes/ranger_mini_v3_wheel_right.dae" />
+        <mesh filename="package://sancho_description/meshes/ranger_mini_v3_wheel_right.stl" />
       </geometry>
       <material name="wheel_matte_gray">
         <color rgba="0.3 0.3 0.3 1.0" />
@@ -158,7 +158,7 @@
     <collision>
       <origin xyz="-0.241 -0.11 0.155" rpy="1.57 0 3.14" />
       <geometry>
-        <mesh filename="package://sancho_description/meshes/ranger_mini_v3_wheel_right.dae" />
+        <mesh filename="package://sancho_description/meshes/ranger_mini_v3_wheel_right.stl" />
       </geometry>
     </collision>
   </link>
@@ -188,7 +188,7 @@
     <visual>
       <origin xyz="-0.241 0.13 0.2" rpy="-1.57 0.0 3.14" />
       <geometry>
-        <mesh filename="package://sancho_description/meshes/ranger_mini_v3_wheel.dae" />
+        <mesh filename="package://sancho_description/meshes/ranger_mini_v3_wheel.stl" />
       </geometry>
       <material name="wheel_matte_gray">
         <color rgba="0.3 0.3 0.3 1.0" />
@@ -199,7 +199,7 @@
     <collision>
       <origin xyz="-0.241 0.13 0.2" rpy="-1.57 0.0 3.14" />
       <geometry>
-        <mesh filename="package://sancho_description/meshes/ranger_mini_v3_wheel.dae" />
+        <mesh filename="package://sancho_description/meshes/ranger_mini_v3_wheel.stl" />
       </geometry>
     </collision>
   </link>
