@@ -23,6 +23,7 @@ class MoveNetInferenceNode(Node):
         self.declare_parameter('min_keypoints', 9)
         self.declare_parameter('model_url', "https://tfhub.dev/google/movenet/multipose/lightning/1")
         self.declare_parameter('visualize_markers', True)  # Nuevo parámetro para visualización
+        self.declare_parameter('image_topic', '/camera/color/image_raw')
 
         self.mirror = self.get_parameter('mirror').value
         self.input_size = self.get_parameter('input_size').value
@@ -30,6 +31,7 @@ class MoveNetInferenceNode(Node):
         self.min_keypoints = self.get_parameter('min_keypoints').value
         self.model_url = self.get_parameter('model_url').value
         self.visualize_markers = self.get_parameter('visualize_markers').value
+        self.image_topic = self.get_parameter('image_topic').value
 
         # Cargar modelo MoveNet
         self.get_logger().info("Cargando modelo MoveNet...")
@@ -43,14 +45,14 @@ class MoveNetInferenceNode(Node):
         self.bridge = CvBridge()
 
         # Suscriptor a la imagen de color
-        self.create_subscription(Image, '/camera/color/image_raw', self.image_callback, 10)
+        self.create_subscription(Image, self.image_topic, self.image_callback, 10)
 
         # Publicador para detecciones "raw"
         self.detections_pub = self.create_publisher(PersonsPoses, '/movenet/raw_detections', 10)
 
         # Publicador para visualización de marcadores si está habilitado
         if self.visualize_markers:
-            self.marker_pub = self.create_publisher(MarkerArray, '/movenet/markers', 10)
+            self.marker_pub = self.create_publisher(Image, self.image_topic + "/markers", 10)
 
     def image_callback(self, color_msg):
         """
@@ -95,30 +97,24 @@ class MoveNetInferenceNode(Node):
             person.avg_depth = 0.0
             detections_msg.persons.append(person)
 
-            # Agregar marcadores para visualización, si está habilitado
+            # Agregar marcadores en la imagen original para visualización, si está habilitado
             if self.visualize_markers:
-                for idx, (x, y) in enumerate(keypoints):
-                    marker = Marker()
-                    marker.header = color_msg.header
-                    marker.ns = f"person_{person_id}"
-                    marker.id = marker_id
-                    marker.type = Marker.SPHERE
-                    marker.action = Marker.ADD
-                    # Normalización de coordenadas (se divide por 100, ajustar según tu necesidad)
-                    marker.pose.position.x = float(x) / 100.0
-                    marker.pose.position.y = float(y) / 100.0
-                    marker.pose.position.z = 0.0
-                    marker.scale.x = 0.02
-                    marker.scale.y = 0.02
-                    marker.scale.z = 0.02
-                    marker.color.r = 0.0
-                    marker.color.g = 1.0
-                    marker.color.b = 0.0
-                    marker.color.a = 1.0
-                    marker.lifetime.sec = 1
-                    marker_array.markers.append(marker)
-                    marker_id += 1
+                #poner con cv2 en la imagen original
+                for i, point in enumerate(keypoints):
+                    x, y = int(point[0]), int(point[1])
+                    if scores[i] >= self.keypoint_score_threshold:
+                        cv.circle(color_image, (x, y), 5, (0, 255, 0), -1)
+                        cv.putText(color_image, str(i), (x + 5, y - 5),
+                                   cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+                try:
+                    vis_msg = self.bridge.cv2_to_imgmsg(color_image, encoding="bgr8")
+                    vis_msg.header = color_msg.header
+                    self.vis_pub.publish(vis_msg)
+                except CvBridgeError as e:
+                    self.get_logger().error(f"Error al convertir imagen para visualización: {e}")
 
+                    
+                
         # Publicar detecciones
         self.detections_pub.publish(detections_msg)
         self.get_logger().info(f"Detecciones publicadas: {len(valid_detections)}")

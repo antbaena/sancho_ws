@@ -4,11 +4,13 @@
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image, CameraInfo
-from geometry_msgs.msg import PoseArray, Pose, Point, Quaternion
 from sancho_msgs.msg import PersonsPoses, PersonPose
 from cv_bridge import CvBridge, CvBridgeError
 import numpy as np
 import message_filters
+
+from visualization_msgs.msg import Marker, MarkerArray
+from geometry_msgs.msg import Point
 
 from .movenet_utils import get_depth_value, convert_2d_to_3d
 
@@ -36,9 +38,9 @@ class MoveNetPostprocessingNode(Node):
         self.create_subscription(CameraInfo, '/camera/color/camera_info', self.camera_info_callback, 10)
         self.camera_info = None
 
-        # Publicadores para detecciones 3D y múltiples poses
+        # Publicadores para detecciones 3D y esqueletos en MarkerArray
         self.keypoints3d_pub = self.create_publisher(PersonsPoses, '/human_pose/keypoints3d', 10)
-        self.persons_poses_pub = self.create_publisher(PoseArray, '/human_pose/persons_poses', 10)
+        self.skeleton_markers_pub = self.create_publisher(MarkerArray, '/human_pose/skeleton_markers', 10)
 
     def camera_info_callback(self, msg):
         self.camera_info = msg
@@ -53,7 +55,7 @@ class MoveNetPostprocessingNode(Node):
         persons_3d_msg = PersonsPoses()
         persons_3d_msg.header = detections_msg.header
 
-        poses_list = []  # Lista de poses válidas para todas las detecciones
+        skeleton_marker_array = MarkerArray()
 
         for person in detections_msg.persons:
             new_person = PersonPose()
@@ -64,8 +66,7 @@ class MoveNetPostprocessingNode(Node):
 
             keypoints_3d = []
             depths = []
-            valid_points = []
-            # Convertir la lista aplanada en lista de tuplas (x,y)
+            # Convertir la lista aplanada en lista de tuplas (x, y)
             keypoints = [(int(person.keypoints[i]), int(person.keypoints[i+1])) 
                          for i in range(0, len(person.keypoints), 2)]
             for (x, y), score in zip(keypoints, person.scores):
@@ -78,7 +79,6 @@ class MoveNetPostprocessingNode(Node):
                             pt3d = convert_2d_to_3d(x, y, depth_val, self.camera_info)
                             keypoints_3d.extend([float(pt3d[0]), float(pt3d[1]), float(pt3d[2])])
                             depths.append(depth_val)
-                            valid_points.append(pt3d)
                     else:
                         keypoints_3d.extend([0.0, 0.0, 0.0])
                 else:
@@ -88,28 +88,54 @@ class MoveNetPostprocessingNode(Node):
 
             persons_3d_msg.persons.append(new_person)
 
-            # Si existen puntos válidos, calcular la pose promedio para este detection
-            if valid_points:
-                avg_point = np.mean(valid_points, axis=0)
-                pose = Pose()
-                pose.position.x = float(avg_point[0])
-                pose.position.y = float(avg_point[1])
-                pose.position.z = float(avg_point[2])
-                # Orientación fija (se puede mejorar el cálculo de la orientación real)
-                pose.orientation = Quaternion(x=0.0, y=0.0, z=0.0, w=1.0)
-                poses_list.append(pose)
+            # Crear marcador para el esqueleto usando un Marker de tipo LINE_LIST
+            if len(keypoints_3d) == 51:
+                # Convertir la lista de 51 valores en 17 tuplas (x,y,z)
+                points_3d = [(keypoints_3d[i], keypoints_3d[i+1], keypoints_3d[i+2]) for i in range(0, 51, 3)]
+                # Definir conexiones del esqueleto según MoveNet
+                skeleton_connections = [
+                    (0, 1),
+                    (0, 2),
+                    (1, 3),
+                    (2, 4),
+                    (0, 5),
+                    (0, 6),
+                    (5, 7),
+                    (7, 9),
+                    (6, 8),
+                    (8, 10),
+                    (5, 11),
+                    (6, 12),
+                    (11, 13),
+                    (13, 15),
+                    (12, 14),
+                    (14, 16)
+                ]
+                marker = Marker()
+                marker.header = detections_msg.header
+                marker.ns = "skeleton"
+                marker.id = person.id
+                marker.type = Marker.LINE_LIST
+                marker.action = Marker.ADD
+                marker.scale.x = 0.02  # Ancho de la línea
+                marker.color.r = 0.0
+                marker.color.g = 1.0
+                marker.color.b = 0.0
+                marker.color.a = 1.0
+                marker.lifetime.sec = 1
+                # Agregar segmentos para cada conexión válida (omitiendo puntos no detectados)
+                for idx1, idx2 in skeleton_connections:
+                    p1 = points_3d[idx1]
+                    p2 = points_3d[idx2]
+                    if not (p1 == (0.0, 0.0, 0.0) or p2 == (0.0, 0.0, 0.0)):
+                        marker.points.append(Point(x=p1[0], y=p1[1], z=p1[2]))
+                        marker.points.append(Point(x=p2[0], y=p2[1], z=p2[2]))
+
+                skeleton_marker_array.markers.append(marker)
 
         self.keypoints3d_pub.publish(persons_3d_msg)
-        self.get_logger().info("Publicadas detecciones 3D.")
-
-        if poses_list:
-            poses_array = PoseArray()
-            poses_array.header = detections_msg.header
-            poses_array.poses = poses_list
-            self.persons_poses_pub.publish(poses_array)
-            self.get_logger().info(f"Publicadas {len(poses_list)} poses válidas en persons_poses.")
-        else:
-            self.get_logger().info("No se pudo calcular la pose 3D de ninguna persona.")
+        self.skeleton_markers_pub.publish(skeleton_marker_array)
+        self.get_logger().info("Publicadas detecciones 3D y esqueletos.")
 
 def main(args=None):
     rclpy.init(args=args)
