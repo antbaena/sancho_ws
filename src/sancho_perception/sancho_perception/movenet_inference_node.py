@@ -22,7 +22,7 @@ class MoveNetInferenceNode(Node):
         self.declare_parameter('keypoint_score_threshold', 0.4)
         self.declare_parameter('min_keypoints', 9)
         self.declare_parameter('model_url', "https://tfhub.dev/google/movenet/multipose/lightning/1")
-        self.declare_parameter('visualize_markers', False)  # Nuevo parámetro para visualización
+        self.declare_parameter('visualize_markers', True)  # Nuevo parámetro para visualización
 
         self.mirror = self.get_parameter('mirror').value
         self.input_size = self.get_parameter('input_size').value
