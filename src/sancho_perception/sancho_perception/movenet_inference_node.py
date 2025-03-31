@@ -43,7 +43,7 @@ class MoveNetInferenceNode(Node):
         self.bridge = CvBridge()
 
         # Suscriptor a la imagen de color
-        self.create_subscription(Image, '/camera/color/image_raw', self.image_callback, 10)
+        self.create_subscription(Image, 'astra_camera/camera/color/image_raw', self.image_callback, 10)
 
         # Publicador para detecciones "raw"
         self.detections_pub = self.create_publisher(PersonsPoses, '/movenet/raw_detections', 10)

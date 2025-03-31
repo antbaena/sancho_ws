@@ -27,13 +27,13 @@ class MoveNetPostprocessingNode(Node):
 
         # Suscripción sincronizada a detecciones "raw" y a la imagen de profundidad
         self.detections_sub = message_filters.Subscriber(self, PersonsPoses, '/movenet/raw_detections')
-        self.depth_sub = message_filters.Subscriber(self, Image, '/camera/depth/image_raw')
+        self.depth_sub = message_filters.Subscriber(self, Image, 'astra_camera/camera/depth/image_raw')
         ts = message_filters.ApproximateTimeSynchronizer([self.detections_sub, self.depth_sub],
                                                           queue_size=10, slop=0.1)
         ts.registerCallback(self.sync_callback)
 
         # Suscriptor a camera_info para la conversión 2D→3D
-        self.create_subscription(CameraInfo, '/camera/color/camera_info', self.camera_info_callback, 10)
+        self.create_subscription(CameraInfo, 'astra_camera/camera/color/camera_info', self.camera_info_callback, 10)
         self.camera_info = None
 
         # Publicadores para detecciones 3D y múltiples poses
