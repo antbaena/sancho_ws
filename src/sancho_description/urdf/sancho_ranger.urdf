@@ -301,5 +301,79 @@
       <child link="camera_link"/>
       <origin xyz="0.375 0 0.68" rpy="0 0 0"/> <!-- Posición y orientación de la cámara -->
   </joint>
+<!-- Cuadro Negro (desde el centro hasta el borde superior, hasta la cámara) -->
+<link name="body_link">
+  <visual>
+    <origin xyz="0 0.1 0.34" rpy="0 0 0"/>
+    <geometry>
+      <box size="0.01 0.2 0.68"/>
+    </geometry>
+    <material name="black_material">
+      <color rgba="0 0 0 1.0"/>
+    </material>
+  </visual>
+  <collision>
+    <origin xyz="0 0.1 0.34" rpy="0 0 0"/>
+    <geometry>
+      <box size="0.01 0.2 0.68"/>
+    </geometry>
+  </collision>
+</link>
+
+<joint name="body_link_joint" type="fixed">
+  <parent link="base_link"/>
+  <child link="body_link"/>
+  <origin xyz="0 0 0" rpy="0 0 0"/>
+</joint>
+
+<!-- Cuello cilíndrico gris -->
+<link name="neck_link">
+  <visual>
+    <origin xyz="0 0 0.725" rpy="0 0 0"/>
+    <geometry>
+      <cylinder length="0.05" radius="0.0525"/>
+    </geometry>
+    <material name="neck_gray">
+      <color rgba="0.5 0.5 0.5 1.0"/>
+    </material>
+  </visual>
+  <collision>
+    <origin xyz="0 0 0.725" rpy="0 0 0"/>
+    <geometry>
+      <cylinder length="0.05" radius="0.0525"/>
+    </geometry>
+  </collision>
+</link>
+
+<joint name="body_to_neck" type="fixed">
+  <parent link="body_link"/>
+  <child link="neck_link"/>
+  <origin xyz="0 0 0" rpy="0 0 0"/>
+</joint>
+
+<!-- Cabeza cuadrada encima del cuello -->
+<link name="head_link">
+  <visual>
+    <origin xyz="0 0 0.8" rpy="0 0 0"/>
+    <geometry>
+      <box size="0.205 0.125 0.1"/>
+    </geometry>
+    <material name="head_gray">
+      <color rgba="0.6 0.6 0.6 1.0"/>
+    </material>
+  </visual>
+  <collision>
+    <origin xyz="0 0 0.8" rpy="0 0 0"/>
+    <geometry>
+      <box size="0.205 0.125 0.1"/>
+    </geometry>
+  </collision>
+</link>
+
+<joint name="neck_to_head" type="fixed">
+  <parent link="neck_link"/>
+  <child link="head_link"/>
+  <origin xyz="0 0 0" rpy="0 0 0"/>
+</joint>
 
 </robot>
