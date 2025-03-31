@@ -24,7 +24,7 @@ def generate_launch_description():
                 'use_sim_time': False,
                 'odom_frame': 'odom',
                 'map_frame': 'map',
-                'base_frame': 'base_link',
+                'base_frame': 'base_footprint',
                 'scan_topic': '/scan',
                 'mode': 'mapping',
                 'map_update_interval': 0.5
@@ -49,6 +49,6 @@ def generate_launch_description():
         Node(
             package='tf2_ros',
             executable='static_transform_publisher',
-            arguments=['0.2', '0.0', '0.1', '0', '0', '0', '1', 'base_link', 'laser']
+            arguments=['0.2', '0.0', '0.1', '0', '0', '0', '1', 'base_footprint', 'laser']
         )
     ])

@@ -5,7 +5,7 @@ amcl:
   ros__parameters:
     use_sim_time: False
     odom_frame_id: "odom"
-    base_frame_id: "base_link"
+    base_frame_id: "base_footprint"
     scan_topic: "/scan_1st"
     min_particles: 500
     max_particles: 8000
@@ -38,7 +38,7 @@ bt_navigator:
   ros__parameters:
     use_sim_time: False
     global_frame: map
-    robot_base_frame: base_link
+    robot_base_frame: base_footprint
     odom_topic: /odom
     bt_loop_duration: 5
     default_server_timeout: 10
@@ -199,7 +199,7 @@ global_costmap:
     ros__parameters:
       use_sim_time: False        # Robot real
       global_frame: "map"        # Typically 'map'
-      robot_base_frame: "base_link"
+      robot_base_frame: "base_footprint"
       resolution: 0.05
       footprint_padding: 0.03
       transform_tolerance: 0.2
@@ -283,7 +283,7 @@ local_costmap:
     ros__parameters:
       use_sim_time: False          # Robot real
       global_frame: "odom"         # Típico para local costmap
-      robot_base_frame: "base_link"
+      robot_base_frame: "base_footprint"
       resolution: 0.05
       transform_tolerance: 0.2
 
@@ -366,7 +366,7 @@ behavior_server:
     wait:
       plugin: "nav2_behaviors/Wait"
     global_frame: "odom"
-    robot_base_frame: "base_link"
+    robot_base_frame: "base_footprint"
     transform_timeout: 0.1
     simulate_ahead_time: 2.0
     max_rotational_vel: 0.5    # Reducido para giros más controlados
@@ -389,7 +389,7 @@ velocity_smoother:
 collision_monitor:
   ros__parameters:
     use_sim_time: False
-    base_frame_id: "base_link"
+    base_frame_id: "base_footprint"
     odom_frame_id: "odom"
     cmd_vel_in_topic: "cmd_vel_smoothed"
     cmd_vel_out_topic: "cmd_vel"
