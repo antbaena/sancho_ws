@@ -4,6 +4,7 @@
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import PoseArray, PoseStamped, Point, Quaternion
+from visualization_msgs.msg import Marker
 from rclpy.duration import Duration
 import numpy as np
 from sklearn.cluster import DBSCAN
@@ -77,6 +78,7 @@ class GroupDetectionNode(Node):
         self.group_pub = self.create_publisher(GroupInfo, self.group_topic, 10)
         # Subscripción a las poses de personas
         self.create_subscription(PoseArray, persons_topic , self.poses_callback, 10)
+        self.marker_pub = self.create_publisher(Marker, '/group_marker', 10)
 
         # Variables de estado para el seguimiento del grupo
         self.current_group_centroid = None  # np.array([x, y])
@@ -124,6 +126,10 @@ class GroupDetectionNode(Node):
             return
         try:
             # Aplicar DBSCAN para identificar clusters
+            if np.any(np.isnan(points)) or np.any(np.isinf(points)):
+                self.get_logger().warn("Datos inválidos en posiciones. Reiniciando seguimiento.")
+                self.reset_group_detection()
+                return
             clustering = DBSCAN(eps=self.group_distance_threshold, min_samples=self.dbscan_min_samples).fit(points)
         except Exception as e:
             self.get_logger().error(f"Error en DBSCAN: {e}")
@@ -205,6 +211,25 @@ class GroupDetectionNode(Node):
         group_msg.pose.orientation = Quaternion(x=0.0, y=0.0, z=0.0, w=1.0)
         group_msg.radius = radius
         self.group_pub.publish(group_msg)
+        marker = Marker()
+        marker.header.stamp = timestamp.to_msg()
+        marker.header.frame_id = "map"
+        marker.ns = "group"
+        marker.id = 0
+        marker.type = Marker.SPHERE
+        marker.action = Marker.ADD
+        marker.pose.position = group_msg.pose.position
+        marker.pose.orientation = group_msg.pose.orientation
+        marker.scale.x = marker.scale.y = marker.scale.z = radius * 2  # Diámetro
+        marker.color.a = 0.5
+        marker.color.r = 0.0
+        marker.color.g = 1.0
+        marker.color.b = 0.0
+        marker.lifetime = rclpy.duration.Duration(seconds=2.0).to_msg()
+
+        self.marker_pub.publish(marker)
+
+
         self.get_logger().info(
             f"Grupo persistente detectado. Publicando centroide {centroid} y radio {radius:.2f} con timestamp de imagen."
         )
