@@ -81,6 +81,17 @@ def generate_launch_description():
             executable='joint_state_publisher',
             output='screen'
         ),
+                # Nodo para fusionar los dos LaserScan en uno solo (/scan)
+        Node(
+            package='laser_filters',
+            executable='scan_merger_node',
+            name='laser_scan_merger',
+            output='screen',
+            parameters=[os.path.join(
+                get_package_share_directory('sancho_description'), 'config', 'scan_merger.yaml'
+            )]
+        ),
+
 
 
 

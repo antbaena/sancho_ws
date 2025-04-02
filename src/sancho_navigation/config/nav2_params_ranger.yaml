@@ -6,8 +6,8 @@ amcl:
     use_sim_time: False
     odom_frame_id: "odom"
     base_frame_id: "base_footprint"
-    scan_topic: "/scan_1st"
-    min_particles: 500
+    scan_topic: "/scan_merged"
+    min_particles: 1000
     max_particles: 8000
     alpha1: 0.2
     alpha2: 0.2
@@ -15,11 +15,13 @@ amcl:
     alpha4: 0.2
     alpha5: 0.2
     robot_model_type: "nav2_amcl::OmniMotionModel"  # o "DifferentialMotionModel" si es un base diff
-    laser_model_type: "likelihood_field"
+    laser_model_type: "likelihood_field_prob"
+    do_beamskip: True
+    beam_skip_distance: 0.5
     laser_max_range: 100.0
     laser_min_range: -1.0
-    update_min_d: 0.02
-    update_min_a: 0.02
+    update_min_d: 0.2
+    update_min_a: 0.2
     resample_interval: 1
     transform_tolerance: 0.05
     recovery_alpha_slow: 0.001
@@ -199,8 +201,9 @@ global_costmap:
     ros__parameters:
       use_sim_time: False        # Robot real
       global_frame: "map"        # Typically 'map'
+      track_unknown_space: false
       robot_base_frame: "base_footprint"
-      resolution: 0.05
+      resolution: 0.025
       footprint_padding: 0.03
       transform_tolerance: 0.2
 
@@ -209,14 +212,14 @@ global_costmap:
       publish_frequency: 1.0
 
       # Radio del robot (o footprint)
-      robot_radius: 0.22
+      footprint: "[[-0.375, -0.275], [-0.375, 0.275], [0.375, 0.275], [0.375, -0.275]]"
+
 
       # Lista de capas
       plugins:
         - "static_layer"
         - "obstacle_layer"
         - "inflation_layer"
-        - "proxemics_layer"
 
       # Static layer
       static_layer:
@@ -233,44 +236,37 @@ global_costmap:
         footprint_clearing_enabled: true
         max_obstacle_height: 2.0
         combination_method: 1
-        observation_sources: "laser_front laser_back camera_depth"
+        observation_sources: "laser_front laser_back"
 
         laser_front:
           topic: "/scan_1st"
           max_obstacle_height: 2.0
           clearing: True
           marking: True
+          observation_persistence: 0.5  
 
         laser_back:
           topic: "/scan_2nd"
           max_obstacle_height: 2.0
           clearing: True
           marking: True
+          observation_persistence: 0.5
         
-        camera_depth:
-          topic: "/scan_camera"
-          max_obstacle_height: 2.0
-          clearing: True
-          marking: True
+        # camera_depth:
+        #   topic: "/scan_camera"
+        #   max_obstacle_height: 2.0
+        #   clearing: True
+        #   marking: True
+        #   observation_persistence: 0.5
 
       # Inflation layer
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         enabled: true
-        inflation_radius: 0.5     # Incrementado para favorecer trayectorias suaves
-        cost_scaling_factor: 2.5  # Gradiente de coste más suave
+        inflation_radius: 0.25    # Incrementado para favorecer trayectorias suaves
+        cost_scaling_factor: 5  # Gradiente de coste más suave
         inflate_unknown: true
         inflate_around_unknown: true
-
-      # Proxemics layer
-      proxemics_layer:
-        plugin: "proxemics_costmap_layer::ProxemicsLayer"
-        enabled: true
-        ellipse_a: 0.5
-        ellipse_b: 0.3
-        obstacle_cost: 254
-        person_topic: "/human_pose/persons_poses"
-        transform_tolerance: 0.1
 
       # Costmap completo
       always_send_full_costmap: True
@@ -295,13 +291,35 @@ local_costmap:
       update_frequency: 20.0
       publish_frequency: 10.0
 
-      robot_radius: 0.22
+      footprint: "[[-0.375, -0.275], [-0.375, 0.275], [0.375, 0.275], [0.375, -0.275]]"
       footprint_padding: 0.03
 
       plugins:
+        - "voxel_layer"
         - "obstacle_layer"
         - "inflation_layer"
-        - "proxemics_layer"
+        - "social_layer"
+
+      voxel_layer:
+        plugin: "nav2_costmap_2d::VoxelLayer"
+        enabled: true
+        voxel_decay: 0.5         # Obstáculos desaparecen rápido
+        decay_model: 0           # 0: Tiempo fijo
+        voxel_size: 0.05
+        z_voxels: 10
+        max_obstacle_height: 2.0
+        mark_threshold: 0
+        observation_sources: "camera_depth"
+        camera_depth:
+          topic: "/scan_camera"
+          data_type: "PointCloud2"
+          marking: true
+          clearing: true
+          obstacle_range: 5.0
+          raytrace_range: 5.5
+          min_obstacle_height: 0.1
+          max_obstacle_height: 1.8
+
 
       # Obstacle layer local
       obstacle_layer:
@@ -311,24 +329,26 @@ local_costmap:
         max_obstacle_height: 2.0
         combination_method: 1
         observation_sources: "laser_front laser_back camera_depth"
+        observation_persistence: 0.2
+        obstacle_range: 5.0
+        raytrace_range: 5.5
 
         laser_front:
           topic: "/scan_1st"
           max_obstacle_height: 2.0
           clearing: True
           marking: True
-
         laser_back:
           topic: "/scan_2nd"
           max_obstacle_height: 2.0
           clearing: True
           marking: True
-        
         camera_depth:
           topic: "/scan_camera"
-          max_obstacle_height: 2.0
           clearing: True
           marking: True
+          min_obstacle_height: 0.1
+          max_obstacle_height: 1.8
 
       # Inflation layer local
       inflation_layer:
@@ -340,14 +360,25 @@ local_costmap:
         inflate_around_unknown: true
 
       # Proxemics layer local
-      proxemics_layer:
-        plugin: "proxemics_costmap_layer::ProxemicsLayer"
+      # proxemics_layer:
+      #   plugin: "proxemics_costmap_layer::ProxemicsLayer"
+      #   enabled: true
+      #   ellipse_a: 0.5
+      #   ellipse_b: 0.3
+      #   obstacle_cost: 254
+      #   person_topic: "/human_pose/persons_poses"
+      #   transform_tolerance: 0.1
+      
+      social_layer:
+        plugin: "nav2_social_costmap_plugin::SocialLayer"
         enabled: true
-        ellipse_a: 0.5
-        ellipse_b: 0.3
-        obstacle_cost: 254
-        person_topic: "/human_pose/persons_poses"
-        transform_tolerance: 0.1
+        people_topic: "/people"
+        cutoff: 0.01              # Umbral mínimo de coste
+        amplitude: 250.0          # Coste máximo (cerca de la persona)
+        variance: 0.4             # Ancho de la gaussiana (espacio personal)
+        keep_time: 0.5            # Persistencia de la detección (s igual que observation_persistence)
+        resolution: 0.05          # Igual que el costmap
+
 
 # =====================
 # BEHAVIOR SERVER

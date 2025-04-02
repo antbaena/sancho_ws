@@ -8,6 +8,8 @@ from sancho_msgs.msg import PersonsPoses, PersonPose
 from cv_bridge import CvBridge, CvBridgeError
 import numpy as np
 import message_filters
+from people_msgs.msg import People, Person
+from geometry_msgs.msg import Vector3
 
 from visualization_msgs.msg import Marker, MarkerArray
 from geometry_msgs.msg import Point
@@ -41,6 +43,8 @@ class MoveNetPostprocessingNode(Node):
         # Publicadores para detecciones 3D y esqueletos en MarkerArray
         self.keypoints3d_pub = self.create_publisher(PersonsPoses, '/human_pose/keypoints3d', 10)
         self.skeleton_markers_pub = self.create_publisher(MarkerArray, '/human_pose/skeleton_markers', 10)
+        self.people_pub = self.create_publisher(People, '/people', 10)
+
 
     def camera_info_callback(self, msg):
         self.camera_info = msg
@@ -133,7 +137,26 @@ class MoveNetPostprocessingNode(Node):
 
                 skeleton_marker_array.markers.append(marker)
 
+
+
         self.keypoints3d_pub.publish(persons_3d_msg)
+        
+        people_msg = People()
+        people_msg.header = detections_msg.header
+
+        for person in persons_3d_msg.persons:
+            if person.avg_depth > 0.0:  # Solo personas válidas
+                p = Person()
+                p.name = f"person_{person.id}"
+                p.position.position.x = person.keypoints3d[0]  # Nariz, primer punto de keypoints3d
+                p.position.position.y = person.keypoints3d[1]
+                p.position.position.z = person.keypoints3d[2]
+                p.velocity = Vector3(x=0.0, y=0.0, z=0.0)  # Opcional: podrías estimar velocidad
+                people_msg.people.append(p)
+
+        if people_msg.people:
+            self.people_pub.publish(people_msg)
+
         self.skeleton_markers_pub.publish(skeleton_marker_array)
         self.get_logger().info("Publicadas detecciones 3D y esqueletos.")
 
