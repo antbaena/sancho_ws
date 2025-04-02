@@ -304,18 +304,18 @@
 <!-- Cuadro Negro (desde el centro hasta el borde superior, hasta la cámara) -->
 <link name="body_link">
   <visual>
-    <origin xyz="0 0.1 0.34" rpy="0 0 0"/>
+    <origin xyz="0.1 0 0.34" rpy="0 0 0"/>
     <geometry>
-      <box size="0.01 0.2 0.68"/>
+      <box size="0.4 0.32 0.7"/>
     </geometry>
     <material name="black_material">
       <color rgba="0 0 0 1.0"/>
     </material>
   </visual>
   <collision>
-    <origin xyz="0 0.1 0.34" rpy="0 0 0"/>
+    <origin xyz="0.1 0 0.34" rpy="0 0 0"/>
     <geometry>
-      <box size="0.01 0.2 0.68"/>
+      <box size="0.4 0.32 0.7"/>
     </geometry>
   </collision>
 </link>
@@ -329,7 +329,7 @@
 <!-- Cuello cilíndrico gris -->
 <link name="neck_link">
   <visual>
-    <origin xyz="0 0 0.725" rpy="0 0 0"/>
+    <origin xyz="0.15 0 0.725" rpy="0 0 1.57"/>
     <geometry>
       <cylinder length="0.05" radius="0.0525"/>
     </geometry>
@@ -338,7 +338,7 @@
     </material>
   </visual>
   <collision>
-    <origin xyz="0 0 0.725" rpy="0 0 0"/>
+    <origin xyz="0.15 0 0.725" rpy="0 0 0"/>
     <geometry>
       <cylinder length="0.05" radius="0.0525"/>
     </geometry>
@@ -354,7 +354,7 @@
 <!-- Cabeza cuadrada encima del cuello -->
 <link name="head_link">
   <visual>
-    <origin xyz="0 0 0.8" rpy="0 0 0"/>
+    <origin xyz="0.15 0 0.8" rpy="0 0 1.57"/>
     <geometry>
       <box size="0.205 0.125 0.1"/>
     </geometry>
@@ -363,7 +363,7 @@
     </material>
   </visual>
   <collision>
-    <origin xyz="0 0 0.8" rpy="0 0 0"/>
+    <origin xyz="0.15 0 0.8" rpy="0 0 0"/>
     <geometry>
       <box size="0.205 0.125 0.1"/>
     </geometry>
