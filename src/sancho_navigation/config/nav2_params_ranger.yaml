@@ -263,7 +263,7 @@ global_costmap:
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         enabled: true
-        inflation_radius: 0.4   # Incrementado para favorecer trayectorias suaves
+        inflation_radius: 0.31   # Incrementado para favorecer trayectorias suaves
         cost_scaling_factor: 5.0  # Gradiente de coste más suave
         inflate_unknown: true
         inflate_around_unknown: true
@@ -298,7 +298,7 @@ local_costmap:
         - "voxel_layer"
         - "obstacle_layer"
         - "inflation_layer"
-        - "social_layer"
+        # - "social_layer"
 
       voxel_layer:
         plugin: "nav2_costmap_2d::VoxelLayer"
@@ -355,8 +355,8 @@ local_costmap:
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         enabled: true
-        inflation_radius: 0.2     # Incrementado ligeramente para mayor suavidad
-        cost_scaling_factor: 2.5
+        inflation_radius: 0.31     # Incrementado ligeramente para mayor suavidad
+        cost_scaling_factor: 5.0
         inflate_unknown: true
         inflate_around_unknown: true
 

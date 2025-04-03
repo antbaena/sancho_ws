@@ -75,7 +75,7 @@ def generate_launch_description():
                 executable="controller_server",
                 name="controller_server",
                 output="screen",
-                prefix="xterm -hold -e",
+                # prefix="xterm -hold -e",
                 emulate_tty=True,
                 parameters=[nav2_params_path],
                 remappings=[
