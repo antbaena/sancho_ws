@@ -82,16 +82,50 @@ def generate_launch_description():
             output='screen'
         ),
                 # Nodo para fusionar los dos LaserScan en uno solo (/scan)
-        Node(
-            package='laser_filters',
-            executable='scan_merger_node',
+         Node(
+            package='laser_scan_merger',
+            executable='laser_scan_merger',
             name='laser_scan_merger',
             output='screen',
-            parameters=[os.path.join(
-                get_package_share_directory('sancho_description'), 'config', 'scan_merger.yaml'
-            )]
+            prefix='xterm -hold -e',
+            parameters=[{
+                'scanTopic1': '/scan_1st',
+                'scanTopic2': '/scan_2nd',
+                'target_frame': 'base_link',
+                'laser1_frame': 'laser_front',
+                'laser2_frame': 'laser_back',
+                'point_cloud_topic': 'scan_merged',
+                'pointCloutFrameId': 'base_link',
+                'pointCloudTopic':  '/laser_cloud',
+            }]
         ),
 
+        # Nodo para convertir PointCloud2 a LaserScan
+        Node(
+            package='pointcloud_to_laserscan',
+            executable='pointcloud_to_laserscan_node',
+            name='cloud_to_scan',
+            output='screen',
+            prefix='xterm -hold -e',
+            remappings=[
+                ('cloud_in', '/laser_cloud'),
+                ('scan', '/scan_merged')
+            ],
+            parameters=[{
+                'target_frame': 'base_link', # <- tu frame deseado
+                'transform_tolerance': 0.01,
+                'min_height': -1.0,
+                'max_height': 1.0,
+                'angle_min': -3.14,
+                'angle_max': 3.14,
+                'angle_increment': 0.008,
+                'scan_time': 0.1,
+                'range_min': 0.1,
+                'range_max': 30.0,
+                'use_inf': True,
+                'inf_epsilon': 1.0
+            }]
+        ),
 
 
 
