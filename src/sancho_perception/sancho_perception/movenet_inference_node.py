@@ -23,7 +23,7 @@ class MoveNetInferenceNode(Node):
         self.declare_parameter('min_keypoints', 9)
         self.declare_parameter('model_url', "https://tfhub.dev/google/movenet/multipose/lightning/1")
         self.declare_parameter('visualize_markers', True)  # Nuevo parámetro para visualización
-        self.declare_parameter('image_topic', '/camera/color/image_raw')
+        self.declare_parameter('image_topic', '/astra_camera/camera/color/image_raw')
 
         self.mirror = self.get_parameter('mirror').value
         self.input_size = self.get_parameter('input_size').value
@@ -109,7 +109,7 @@ class MoveNetInferenceNode(Node):
                 try:
                     vis_msg = self.bridge.cv2_to_imgmsg(color_image, encoding="bgr8")
                     vis_msg.header = color_msg.header
-                    self.vis_pub.publish(vis_msg)
+                    self.marker_pub.publish(vis_msg)
                 except CvBridgeError as e:
                     self.get_logger().error(f"Error al convertir imagen para visualización: {e}")
 
@@ -118,10 +118,6 @@ class MoveNetInferenceNode(Node):
         # Publicar detecciones
         self.detections_pub.publish(detections_msg)
         self.get_logger().info(f"Detecciones publicadas: {len(valid_detections)}")
-
-        # Publicar marcadores si está habilitado
-        if self.visualize_markers:
-            self.marker_pub.publish(marker_array)
 
 def main(args=None):
     rclpy.init(args=args)
