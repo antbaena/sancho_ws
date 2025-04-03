@@ -311,7 +311,7 @@ local_costmap:
         mark_threshold: 0
         observation_sources: "camera_depth"
         camera_depth:
-          topic: "/scan_camera"
+          topic: "/astra_camera/camera/depth/points"
           data_type: "PointCloud2"
           marking: true
           clearing: true
