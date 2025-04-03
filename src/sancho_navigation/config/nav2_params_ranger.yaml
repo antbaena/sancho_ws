@@ -174,12 +174,25 @@ planner_server:
   ros__parameters:
     use_sim_time: False
     expected_planner_frequency: 20.0
-    planner_plugins: ["GridBased"]
-    GridBased:
-      plugin: "nav2_navfn_planner/NavfnPlanner"
+    planner_plugins: ["SmacHybridPlanner"]
+    SmacHybridPlanner:
+      plugin: "nav2_smac_planner/SmacPlannerHybrid"
       tolerance: 0.5
-      use_astar: true
-      allow_unknown: false
+      downsample_costmap: false
+      
+      # Parámetros críticos para tu cinemática Ackermann/diferencial
+      motion_model_for_search: "REEDS_SHEPP"
+      minimum_turning_radius: 0.3  # 0.3m es un buen punto inicial. Ajustable.
+      angle_quantization_bins: 72  # precisión angular (5 grados), ajustable según CPU
+      analytic_expansion_ratio: 3.5  # expansión analítica más rápida cerca de la meta
+      max_planning_time: 5.0  # segundos máximo de planeación
+      smoother:
+        smoother_plugin: "nav2_smac_planner/ConjugateGradientSmoother"
+        tolerance: 1e-10
+        max_iterations: 100
+        w_smooth: 0.3
+        w_curvature: 0.1
+        w_distance: 0.2
 
 planner_server_rclcpp_node:
   ros__parameters:
