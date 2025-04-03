@@ -87,7 +87,6 @@ def generate_launch_description():
             executable='laser_scan_merger',
             name='laser_scan_merger',
             output='screen',
-            prefix='xterm -hold -e',
             parameters=[{
                 'scanTopic1': '/scan_1st',
                 'scanTopic2': '/scan_2nd',
@@ -106,7 +105,6 @@ def generate_launch_description():
             executable='pointcloud_to_laserscan_node',
             name='cloud_to_scan',
             output='screen',
-            prefix='xterm -hold -e',
             remappings=[
                 ('cloud_in', '/laser_cloud'),
                 ('scan', '/scan_merged')

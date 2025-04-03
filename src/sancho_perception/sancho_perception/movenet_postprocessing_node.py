@@ -148,10 +148,10 @@ class MoveNetPostprocessingNode(Node):
             if person.avg_depth > 0.0:  # Solo personas válidas
                 p = Person()
                 p.name = f"person_{person.id}"
-                p.position.position.x = person.keypoints3d[0]  # Nariz, primer punto de keypoints3d
-                p.position.position.y = person.keypoints3d[1]
-                p.position.position.z = person.keypoints3d[2]
-                p.velocity = Vector3(x=0.0, y=0.0, z=0.0)  # Opcional: podrías estimar velocidad
+                p.position = Point(x=float(person.keypoints3d[0]),
+                                  y=float(person.keypoints3d[1]),
+                                  z=float(person.keypoints3d[2]))
+                p.velocity = Point(x=0.0, y=0.0, z=0.0)  # Opcional: podrías estimar velocidad
                 people_msg.people.append(p)
 
         if people_msg.people:
