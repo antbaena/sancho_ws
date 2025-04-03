@@ -91,9 +91,9 @@ controller_server:
   ros__parameters:
     use_sim_time: False
     controller_frequency: 20.0
-    min_x_velocity_threshold: 0.5
-    min_y_velocity_threshold: 0.5
-    min_theta_velocity_threshold: 0.2
+    min_x_velocity_threshold: 0.05
+    min_y_velocity_threshold: 0.05
+    min_theta_velocity_threshold: 0.05
     failure_tolerance: 0.3
 
     progress_checker_plugin: "progress_checker"
@@ -111,57 +111,57 @@ controller_server:
       stateful: True
       plugin: "nav2_controller::SimpleGoalChecker"
       xy_goal_tolerance: 0.25
-      yaw_goal_tolerance: 0.5   # Mayor tolerancia para evitar microajustes
+      yaw_goal_tolerance: 0.6   # Mayor tolerancia para evitar microajustes
 
     FollowPath:
       plugin: "dwb_core::DWBLocalPlanner"
-      debug_trajectory_details: True
       # Velocidades mínimas/máximas
       min_vel_x: 0.0
       max_vel_x: 0.35
       min_vel_y: 0.0
       max_vel_y: 0.0   # Sin movimiento lateral (comportamiento diferencial)
-      min_vel_theta: 0.1   # Evitar giros muy pequeños
+
+      min_vel_theta: 0.2   # Evitar giros muy pequeños
       max_vel_theta: 0.5   # Reducido para giros más controlados
       theta_stopped_velocity: 0.1
+
       min_speed_xy: 0.0
       max_speed_xy: 0.26
       min_speed_theta: 0.0   # Establece una velocidad mínima de rotación
 
       # Aceleraciones
-      acc_lim_x: 1.0
-      acc_lim_y: 0.0
-      acc_lim_theta: 0.8   # Menor aceleración angular para transiciones suaves
-      decel_lim_x: -1.5
-      decel_lim_y: 0.0
-      decel_lim_theta: -0.8  # Menor desaceleración angular
+      acc_lim_x: 0.35
+      acc_lim_theta: 0.6   # Menor aceleración angular para transiciones suaves
+      decel_lim_x: -0.35
+      decel_lim_theta: -0.6  # Menor desaceleración angular
 
       # Muestreo
       vx_samples: 30
-      vy_samples: 5
+      vy_samples: 1
       vtheta_samples: 20    # Menos muestras para evitar microajustes
 
       sim_time: 1.5
       linear_granularity: 0.02
-      angular_granularity: 0.03   # Mayor granularidad angular para reducir ajustes finos
+      angular_granularity: 0.05
+
       transform_tolerance: 0.5
       xy_goal_tolerance: 0.25
-      trans_stopped_velocity: 0.25
+      trans_stopped_velocity: 0.05
       short_circuit_trajectory_evaluation: True
       stateful: True
 
       # Critic plugins
-      critics: ["RotateToGoal", "Oscillation", "BaseObstacle", "GoalAlign", "PathAlign", "PathDist", "GoalDist"]
+      critics: ["BaseObstacle","PathAlign",  "GoalAlign","RotateToGoal", "Oscillation", "PreferForward", "PathDist", "GoalDist"]
       BaseObstacle.scale: 0.1
-      PathAlign.scale: 32.0
-      PathAlign.forward_point_distance: 0.1
-      GoalAlign.scale: 24.0
-      GoalAlign.forward_point_distance: 0.1
-      PathDist.scale: 32.0
-      GoalDist.scale: 24.0
-      RotateToGoal.scale: 32.0
-      RotateToGoal.slowing_factor: 2.0   # Menor desaceleración al acercarse a la meta
-      RotateToGoal.lookahead_time: -1.0
+      PathAlign.scale: 20.0
+      PathAlign.forward_point_distance: 0.15
+
+      GoalAlign.scale: 15.0
+      GoalAlign.forward_point_distance: 0.15
+
+      RotateToGoal.scale: 25.0
+      RotateToGoal.slowing_factor: 8.0   # Menor desaceleración al acercarse a la meta
+      RotateToGoal.lookahead_time: 0.5
 
 controller_server_rclcpp_node:
   ros__parameters:
