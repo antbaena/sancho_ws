@@ -10,6 +10,9 @@ import numpy as np
 import message_filters
 from people_msgs.msg import People, Person
 from geometry_msgs.msg import Vector3
+import random
+random.seed(42)
+# Opcional: semilla para reproducibilidad
 
 from visualization_msgs.msg import Marker, MarkerArray
 from geometry_msgs.msg import Point
@@ -67,6 +70,9 @@ class MoveNetPostprocessingNode(Node):
             new_person.id = person.id
             new_person.keypoints = [0.0] * 34  # Dejamos 2D en cero
             new_person.scores = person.scores
+            color_r = random.random()
+            color_g = random.random()
+            color_b = random.random()
 
             keypoints_3d = []
             depths = []
@@ -115,28 +121,73 @@ class MoveNetPostprocessingNode(Node):
                     (12, 14),
                     (14, 16)
                 ]
-                marker = Marker()
-                marker.header = detections_msg.header
-                marker.ns = "skeleton"
-                marker.id = person.id
-                marker.type = Marker.LINE_LIST
-                marker.action = Marker.ADD
-                marker.scale.x = 0.02  # Ancho de la línea
-                marker.color.r = 0.0
-                marker.color.g = 1.0
-                marker.color.b = 0.0
-                marker.color.a = 1.0
-                marker.lifetime.sec = 1
-                # Agregar segmentos para cada conexión válida (omitiendo puntos no detectados)
+                # Marker para los puntos (articulaciones)
+                points_marker = Marker()
+                points_marker.header = detections_msg.header
+                points_marker.ns = f"skeleton_points_{person.id}"
+                points_marker.id = person.id * 2   # Un ID único (ej: 2, 4, 6...)
+                points_marker.type = Marker.SPHERE_LIST
+                points_marker.action = Marker.ADD
+                points_marker.scale.x = 0.05  # tamaño esfera
+                points_marker.scale.y = 0.05
+                points_marker.scale.z = 0.05
+                points_marker.color.r = 1.0
+                points_marker.color.g = 0.0
+                points_marker.color.b = 0.0
+                points_marker.color.a = 1.0
+                points_marker.lifetime.sec = 1 # Duración del marcador
+                for point in points_3d:
+                    if point != (0.0, 0.0, 0.0):  # Solo puntos válidos
+                        p = Point(x=point[0], y=point[1], z=point[2])
+                        points_marker.points.append(p)
+
+                skeleton_marker_array.markers.append(points_marker)
+
+                # Marker para los huesos (conexiones)
+                lines_marker = Marker()
+                lines_marker.header = detections_msg.header
+                lines_marker.ns = f"skeleton_lines_{person.id}"
+                lines_marker.id = person.id * 2 + 1  # Un ID único (ej: 3, 5, 7...)
+                lines_marker.type = Marker.LINE_LIST
+                lines_marker.action = Marker.ADD
+                lines_marker.scale.x = 0.02  # grosor de la línea
+                lines_marker.color.r = 0.0
+                lines_marker.color.g = 1.0
+                lines_marker.color.b = 0.0
+                lines_marker.color.a = 1.0
+                lines_marker.lifetime.sec = 1 # Duración del marcador
+
                 for idx1, idx2 in skeleton_connections:
                     p1 = points_3d[idx1]
                     p2 = points_3d[idx2]
                     if not (p1 == (0.0, 0.0, 0.0) or p2 == (0.0, 0.0, 0.0)):
-                        marker.points.append(Point(x=p1[0], y=p1[1], z=p1[2]))
-                        marker.points.append(Point(x=p2[0], y=p2[1], z=p2[2]))
+                        lines_marker.points.append(Point(x=p1[0], y=p1[1], z=p1[2]))
+                        lines_marker.points.append(Point(x=p2[0], y=p2[1], z=p2[2]))
 
-                skeleton_marker_array.markers.append(marker)
+                skeleton_marker_array.markers.append(lines_marker)
 
+                # Crear marcador de texto para el ID de la persona
+                text_marker = Marker()
+                text_marker.header = detections_msg.header
+                text_marker.ns = "skeleton_text"
+                text_marker.id = 1000 + person.id  # Asegúrate de que IDs no colisionen con los esqueletos
+                text_marker.type = Marker.TEXT_VIEW_FACING
+                text_marker.action = Marker.ADD
+                text_marker.scale.z = 0.2  # Tamaño del texto
+                text_marker.color.r = 1.0
+                text_marker.color.g = 1.0
+                text_marker.color.b = 1.0
+                text_marker.color.a = 1.0
+                text_marker.pose.position.x = points_3d[0][0]
+                text_marker.pose.position.y = points_3d[0][1]
+                text_marker.pose.position.z = points_3d[0][2] + 0.3  # Un poco encima de la cabeza
+                text_marker.text = f"ID {person.id}"
+                text_marker.lifetime.sec = 1
+
+                skeleton_marker_array.markers.append(text_marker)
+
+                
+            
 
 
         self.keypoints3d_pub.publish(persons_3d_msg)
