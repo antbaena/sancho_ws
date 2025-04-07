@@ -19,6 +19,7 @@ def generate_launch_description():
 
     # Lifecycle Nodes
     movenet_inference_node = LifecycleNode(
+        namespace='',  
         package='sancho_perception',
         executable='movenet_inference_node',
         name='movenet_inference_node',
@@ -29,6 +30,7 @@ def generate_launch_description():
     )
     
     movenet_postprocessing_node = LifecycleNode(
+        namespace='',  
         package='sancho_perception',
         executable='movenet_postprocessing_node',
         name='movenet_postprocessing_node',
