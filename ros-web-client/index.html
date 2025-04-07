@@ -1,13 +1,24 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vite + React</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vite + React</title>
+  <!-- ROSLIBJS -->
+  <script src="https://static.robotwebtools.org/roslibjs/current/roslib.min.js"></script>
+  <!-- EASELJS (depende de ros2djs) -->
+  <script src="https://code.createjs.com/1.0.0/easeljs.min.js"></script>
+  <!-- EVENTEMITTER2 (depende de ros2djs) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/eventemitter2/6.4.5/eventemitter2.min.js"></script>
+  <!-- ROS2DJS -->
+  <script src="https://static.robotwebtools.org/ros2djs/current/ros2d.min.js"></script>
+</head>
+
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.jsx"></script>
+</body>
+
 </html>
