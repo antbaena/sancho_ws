@@ -4,10 +4,7 @@ import os
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, GroupAction
 from launch.substitutions import LaunchConfiguration
-from launch_ros.actions import LifecycleNode
-from launch.actions import RegisterEventHandler
-from launch.event_handlers import OnStateTransition
-
+from launch_ros.actions import LifecycleNode, Node
 from ament_index_python.packages import get_package_share_directory
 
 def generate_launch_description():
@@ -18,9 +15,9 @@ def generate_launch_description():
 
     # Launch Arguments
     use_xterm = LaunchConfiguration('use_xterm')
-
     prefix_cmd = LaunchConfiguration('prefix')
-    
+
+    # Lifecycle Nodes
     movenet_inference_node = LifecycleNode(
         package='sancho_perception',
         executable='movenet_inference_node',
@@ -41,8 +38,23 @@ def generate_launch_description():
         emulate_tty=True,
     )
 
+    # Lifecycle Manager
+    lifecycle_manager = Node(
+        package='lifecycle_manager',
+        executable='lifecycle_manager',
+        name='lifecycle_manager_perception',
+        output='screen',
+        parameters=[{
+            'autostart': True,
+            'node_names': [
+                'movenet_inference_node',
+                'movenet_postprocessing_node'
+            ]
+        }]
+    )
+
     return LaunchDescription([
-        # Opcional: usar xterm o no
+        # Declare arguments
         DeclareLaunchArgument(
             'use_xterm',
             default_value='true',
@@ -57,24 +69,6 @@ def generate_launch_description():
         GroupAction([
             movenet_inference_node,
             movenet_postprocessing_node,
-
-            # Activar automáticamente el nodo de inferencia
-            RegisterEventHandler(
-                OnStateTransition(
-                    target_lifecycle_node=movenet_inference_node,
-                    start_state='inactive',
-                    goal_state='active',
-                    entities=[]
-                )
-            ),
-            # Activar automáticamente el nodo de postprocesado
-            RegisterEventHandler(
-                OnStateTransition(
-                    target_lifecycle_node=movenet_postprocessing_node,
-                    start_state='inactive',
-                    goal_state='active',
-                    entities=[]
-                )
-            ),
+            lifecycle_manager,
         ]),
     ])
