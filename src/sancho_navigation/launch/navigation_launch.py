@@ -14,33 +14,20 @@ def generate_launch_description():
 
     return LaunchDescription(
         [
-            # Velocity Smoother
+            # # Collision Monitor
             Node(
-                package="nav2_velocity_smoother",
-                executable="velocity_smoother",
-                name="velocity_smoother",
-                prefix="xterm -hold -e",
-                emulate_tty=True,
-                parameters=[nav2_params_path],
-                remappings=[
-                    ("cmd_vel", "cmd_vel_raw"),
-                    ("cmd_vel_smoothed", "cmd_vel_smoothed"),
-                ],
-            ),
-            # Collision Monitor
-            Node(
-                package="nav2_collision_monitor",
-                executable="collision_monitor",
-                name="collision_monitor",
-                prefix="xterm -hold -e",
-                emulate_tty=True,
-                parameters=[nav2_params_path],
-                remappings=[
-                    ("cmd_vel_in", "cmd_vel_smoothed"),
-                    ("cmd_vel_out", "cmd_vel"),
-                ],
-            ),
-            # Nodo de mapa
+                 package="nav2_collision_monitor",
+                 executable="collision_monitor",
+                 name="collision_monitor",
+                 prefix="xterm -hold -e",
+                 emulate_tty=True,
+                 parameters=[nav2_params_path],
+                 remappings=[
+                     ("cmd_vel_in", "cmd_vel_raw"),
+                     ("cmd_vel_out", "cmd_vel"),
+                 ],
+             ),
+            #  Nodo de mapa
             Node(
                 package="nav2_map_server",
                 executable="map_server",
@@ -75,7 +62,7 @@ def generate_launch_description():
                 executable="controller_server",
                 name="controller_server",
                 output="screen",
-                # prefix="xterm -hold -e",
+                prefix="xterm -hold -e",
                 emulate_tty=True,
                 parameters=[nav2_params_path],
                 remappings=[
@@ -121,7 +108,6 @@ def generate_launch_description():
                             "controller_server",
                             "behavior_server",
                             "bt_navigator",
-                            "velocity_smoother",
                             "collision_monitor",
                         ],
                     }
@@ -148,9 +134,7 @@ def generate_launch_description():
                     ("depth", "/astra_camera/camera/depth/image_raw"),
                     ("scan", "/scan_camera"),
                 ],
-                output="screen",
-                prefix="xterm -hold -e",
-                emulate_tty=True,
+                output="screen"
             ),
         ]
     )
