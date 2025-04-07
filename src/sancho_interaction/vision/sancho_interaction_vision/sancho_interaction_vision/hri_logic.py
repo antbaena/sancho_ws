@@ -14,7 +14,7 @@ from human_face_recognition_msgs.srv import Detection, Recognition, Training, Au
 from .hri_bridge import HRIBridge
 
 from .camera_parameters import RESOLUTION, get_parameters
-from .api.gui import mark_face
+from .gui.gui import mark_face
 
 class HRILogicV2Node(Node):
 

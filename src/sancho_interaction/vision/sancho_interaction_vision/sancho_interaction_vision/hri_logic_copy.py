@@ -12,7 +12,7 @@ from human_face_recognition_msgs.msg import BodyOrientation, FaceGuiRequest, Hea
 from human_face_recognition_msgs.srv import Detection, Recognition, Training, AudioLocation, GetString, FaceGuiResponse, GetCameraParameters
 from .hri_bridge import HRIBridge
 from std_srvs.srv import Trigger
-from .api.gui import mark_face
+from .gui.gui import mark_face
 
 class HRILogicNode(Node):
     def __init__(self, hri_logic):
