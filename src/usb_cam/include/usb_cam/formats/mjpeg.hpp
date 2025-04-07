@@ -164,6 +164,7 @@ public:
       free(m_avoptions);
     }
     if (m_avcodec_context) {
+      avcodec_close(m_avcodec_context);
       avcodec_free_context(&m_avcodec_context);
     }
     if (m_avframe_device) {
@@ -243,6 +244,8 @@ private:
   size_t m_avframe_rgb_size;
   char * m_averror_str;
   int m_result = 0;
+  int m_counter = 0;
+  const int * m_linesize;
 
   const int m_align = 32;
 };
