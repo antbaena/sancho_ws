@@ -2,7 +2,9 @@
 # -*- coding: utf-8 -*-
 
 import rclpy
-from rclpy.node import Node
+from rclpy.lifecycle import LifecycleNode
+from rclpy.lifecycle import State
+from rclpy.lifecycle import TransitionCallbackReturn
 from sensor_msgs.msg import Image, CameraInfo
 from sancho_msgs.msg import PersonsPoses, PersonPose
 from cv_bridge import CvBridge, CvBridgeError
@@ -19,35 +21,91 @@ from geometry_msgs.msg import Point
 
 from .movenet_utils import get_depth_value, convert_2d_to_3d
 
-class MoveNetPostprocessingNode(Node):
+class MoveNetPostprocessingNode(LifecycleNode):
     def __init__(self):
         super().__init__('movenet_postprocessing')
         self.get_logger().info("Iniciando nodo de postprocesamiento MoveNet...")
 
-        # Parámetros configurables
+        # Inicializa todo a None, se configurarán en on_configure
+        self.bridge = None
+        self.detections_sub = None
+        self.depth_sub = None
+        self.sync = None
+        self.camera_info = None
+
+        self.keypoints3d_pub = None
+        self.skeleton_markers_pub = None
+        self.people_pub = None
+
         self.declare_parameter('depth_window_size', 3)
         self.declare_parameter('keypoint_score_threshold', 0.4)
+
+    def on_configure(self, state: State) -> TransitionCallbackReturn:
+        self.get_logger().info('Configurando MoveNetPostprocessingNode...')
+
         self.depth_window_size = self.get_parameter('depth_window_size').value
         self.keypoint_score_threshold = self.get_parameter('keypoint_score_threshold').value
 
         self.bridge = CvBridge()
 
-        # Suscripción sincronizada a detecciones "raw" y a la imagen de profundidad
-        self.detections_sub = message_filters.Subscriber(self, PersonsPoses, '/movenet/raw_detections')
-        self.depth_sub = message_filters.Subscriber(self, Image, 'astra_camera/camera/depth/image_raw')
-        ts = message_filters.ApproximateTimeSynchronizer([self.detections_sub, self.depth_sub],
-                                                          queue_size=10, slop=0.1)
-        ts.registerCallback(self.sync_callback)
 
         # Suscriptor a camera_info para la conversión 2D→3D
         self.create_subscription(CameraInfo, 'astra_camera/camera/color/camera_info', self.camera_info_callback, 10)
-        self.camera_info = None
 
         # Publicadores para detecciones 3D y esqueletos en MarkerArray
-        self.keypoints3d_pub = self.create_publisher(PersonsPoses, '/human_pose/keypoints3d', 10)
-        self.skeleton_markers_pub = self.create_publisher(MarkerArray, '/human_pose/skeleton_markers', 10)
-        self.people_pub = self.create_publisher(People, '/people', 10)
+        self.keypoints3d_pub = self.create_lifecycle_publisher(PersonsPoses, '/human_pose/keypoints3d', 10)
+        self.skeleton_markers_pub = self.create_lifecycle_publisher(MarkerArray, '/human_pose/skeleton_markers', 10)
+        self.people_pub = self.create_lifecycle_publisher(People, '/people', 10)
 
+        return TransitionCallbackReturn.SUCCESS
+    
+    def on_activate(self, state: State) -> TransitionCallbackReturn:
+        self.get_logger().info('Activando MoveNetPostprocessingNode...')
+
+        # Crear los subscribers sincronizados
+        self.detections_sub = message_filters.Subscriber(self, PersonsPoses, '/movenet/raw_detections')
+        self.depth_sub = message_filters.Subscriber(self, Image, 'astra_camera/camera/depth/image_raw')
+
+        self.sync = message_filters.ApproximateTimeSynchronizer(
+            [self.detections_sub, self.depth_sub],
+            queue_size=10,
+            slop=0.1
+        )
+        self.sync.registerCallback(self.sync_callback)
+
+        return TransitionCallbackReturn.SUCCESS
+    
+    def on_deactivate(self, state: State) -> TransitionCallbackReturn:
+        self.get_logger().info('Desactivando MoveNetPostprocessingNode...')
+
+        # limpiar tus suscripciones (destruir los objetos de message_filters)
+        if self.sync:
+            self.sync = None
+        if self.detections_sub:
+            self.detections_sub = None
+        if self.depth_sub:
+            self.depth_sub = None
+
+        return TransitionCallbackReturn.SUCCESS
+
+    def on_cleanup(self, state: State) -> TransitionCallbackReturn:
+        self.get_logger().info('Limpiando MoveNetPostprocessingNode...')
+        # Limpiar recursos
+        self.bridge = None
+        self.camera_info = None
+        return TransitionCallbackReturn.SUCCESS
+
+    def on_error(self, state: State) -> TransitionCallbackReturn:
+        self.get_logger().error('Error en MoveNetPostprocessingNode, limpiando recursos...')
+        
+        # Aquí podrías limpiar todo lo necesario
+        self.bridge = None
+        self.camera_info = None
+        self.sync = None
+        self.detections_sub = None
+        self.depth_sub = None
+        
+        return TransitionCallbackReturn.SUCCESS
 
     def camera_info_callback(self, msg):
         self.camera_info = msg
@@ -151,9 +209,9 @@ class MoveNetPostprocessingNode(Node):
                 lines_marker.type = Marker.LINE_LIST
                 lines_marker.action = Marker.ADD
                 lines_marker.scale.x = 0.02  # grosor de la línea
-                lines_marker.color.r = 0.0
-                lines_marker.color.g = 1.0
-                lines_marker.color.b = 0.0
+                lines_marker.color.r = color_r
+                lines_marker.color.g = color_g
+                lines_marker.color.b = color_b
                 lines_marker.color.a = 1.0
                 lines_marker.lifetime.sec = 1 # Duración del marcador
 
@@ -181,7 +239,7 @@ class MoveNetPostprocessingNode(Node):
                 text_marker.pose.position.x = points_3d[0][0]
                 text_marker.pose.position.y = points_3d[0][1]
                 text_marker.pose.position.z = points_3d[0][2] + 0.3  # Un poco encima de la cabeza
-                text_marker.text = f"ID {person.id}"
+                text_marker.text = f"ID{person.id}"
                 text_marker.lifetime.sec = 1
 
                 skeleton_marker_array.markers.append(text_marker)
