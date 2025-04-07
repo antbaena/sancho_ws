@@ -9,11 +9,18 @@ from ament_index_python.packages import get_package_share_directory
 def generate_launch_description():
     ranger_bringup_path = get_package_share_directory('ranger_bringup')
 
-    # Cargar URDF desde sancho_description
+    # Ruta a tu archivo URDF
     urdf_file_path = os.path.join(
         get_package_share_directory('sancho_description'),
         'urdf',
         'sancho_ranger.urdf'
+    )
+
+    # Ruta a tu archivo de parámetros custom de la cámara
+    usb_cam_param_file = os.path.join(
+        get_package_share_directory('sancho_bringup'),
+        'config',
+        'usb_cam_params.yaml'   # <-- Asegúrate de crear este archivo
     )
 
     # Lanzar LiDAR Hokuyo
@@ -23,7 +30,7 @@ def generate_launch_description():
         )
     )
 
-    # Lanzar cámara Orbbec Gemini 330 en namespace independiente
+    # Lanzar cámara Orbbec Gemini 330
     orbbec_camera_launch = GroupAction([
         PushRosNamespace('gemini_camera'),
         IncludeLaunchDescription(
@@ -40,7 +47,7 @@ def generate_launch_description():
         )
     ])
 
-    # Lanzar cámara Astra en namespace independiente
+    # Lanzar cámara Astra
     astra_camera_launch = GroupAction([
         PushRosNamespace('astra_camera'),
         IncludeLaunchDescription(
@@ -53,18 +60,30 @@ def generate_launch_description():
                 'color_fps': '15',
                 'depth_fps': '15',
                 'ir_fps': '15'
-
-                
             }.items()
         )
     ])
 
+    # Base móvil Ranger
     ranger_launch = IncludeLaunchDescription(
-            XMLLaunchDescriptionSource(os.path.join(ranger_bringup_path, 'launch', 'ranger_mini_v2.launch.xml')),
-            launch_arguments={
-        'base_frame': 'base_footprint',
+        XMLLaunchDescriptionSource(os.path.join(ranger_bringup_path, 'launch', 'ranger_mini_v2.launch.xml')),
+        launch_arguments={
+            'base_frame': 'base_footprint',
         }.items()
-        )
+    )
+
+    # Nodo de cámara USB
+    usb_cam_node = Node(
+        package='usb_cam',
+        executable='usb_cam_node_exe',
+        name='usb_cam_node',
+        output='screen',
+        parameters=[usb_cam_param_file],
+        remappings=[
+            ('/image_raw', '/sancho_camera/image_raw'),  # Remapear a namespace ordenado
+            ('/camera_info', '/sancho_camera/camera_info')
+        ]
+    )
 
     return LaunchDescription([
         # robot_state_publisher (URDF)
@@ -81,8 +100,9 @@ def generate_launch_description():
             executable='joint_state_publisher',
             output='screen'
         ),
-                # Nodo para fusionar los dos LaserScan en uno solo (/scan)
-         Node(
+
+        # Nodo de fusión de LIDAR
+        Node(
             package='laser_scan_merger',
             executable='laser_scan_merger',
             name='laser_scan_merger',
@@ -99,7 +119,7 @@ def generate_launch_description():
             }]
         ),
 
-        # Nodo para convertir PointCloud2 a LaserScan
+        # Nodo de conversión de nube de puntos a láser
         Node(
             package='pointcloud_to_laserscan',
             executable='pointcloud_to_laserscan_node',
@@ -110,7 +130,7 @@ def generate_launch_description():
                 ('scan', '/scan_merged')
             ],
             parameters=[{
-                'target_frame': 'base_link', # <- tu frame deseado
+                'target_frame': 'base_link',
                 'transform_tolerance': 0.01,
                 'min_height': -1.0,
                 'max_height': 1.0,
@@ -125,12 +145,12 @@ def generate_launch_description():
             }]
         ),
 
-
-
-        # Launch de la base móvil Ranger
+        # Base móvil y sensores
         ranger_launch,
-
-        # Lanzamiento de sensores
         hokuyo_launch,
-        astra_camera_launch
+        astra_camera_launch,
+        # orbbec_camera_launch,
+
+        # NUEVO: Nodo de la cámara USB
+        usb_cam_node
     ])
