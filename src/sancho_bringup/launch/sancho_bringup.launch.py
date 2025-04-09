@@ -5,16 +5,10 @@ from launch_ros.actions import Node, PushRosNamespace
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_xml.launch_description_sources import XMLLaunchDescriptionSource
 from ament_index_python.packages import get_package_share_directory
+from launch.actions import ExecuteProcess
 
 def generate_launch_description():
     ranger_bringup_path = get_package_share_directory('ranger_bringup')
-
-    # Ruta a tu archivo URDF
-    urdf_file_path = os.path.join(
-        get_package_share_directory('sancho_description'),
-        'urdf',
-        'sancho_ranger.urdf'
-    )
 
     # Ruta a tu archivo de parámetros custom de la cámara
     usb_cam_param_file = os.path.join(
@@ -84,25 +78,8 @@ def generate_launch_description():
             ('/camera_info', '/sancho_camera/camera_info')
         ]
     )
-
-    return LaunchDescription([
-        # robot_state_publisher (URDF)
-        Node(
-            package='robot_state_publisher',
-            executable='robot_state_publisher',
-            output='screen',
-            parameters=[{'robot_description': open(urdf_file_path).read()}]
-        ),
-
-        # joint_state_publisher
-        Node(
-            package='joint_state_publisher',
-            executable='joint_state_publisher',
-            output='screen'
-        ),
-
-        # Nodo de fusión de LIDAR
-        Node(
+    
+    scan_merger_node =  Node(
             package='laser_scan_merger',
             executable='laser_scan_merger',
             name='laser_scan_merger',
@@ -117,7 +94,16 @@ def generate_launch_description():
                 'pointCloutFrameId': 'base_link',
                 'pointCloudTopic':  '/laser_cloud',
             }]
-        ),
+        )
+
+    return LaunchDescription([
+        # Comandos para configurar la cámara
+        ExecuteProcess(cmd=['v4l2-ctl', '-d', '/dev/video0', '-c', 'white_balance_automatic=0'], shell=False),
+        ExecuteProcess(cmd=['v4l2-ctl', '-d', '/dev/video0', '-c', 'white_balance_temperature=4600'], shell=False),
+        ExecuteProcess(cmd=['v4l2-ctl', '-d', '/dev/video0', '-c', 'auto_exposure=1'], shell=False),
+        ExecuteProcess(cmd=['v4l2-ctl', '-d', '/dev/video0', '-c', 'exposure_time_absolute=157'], shell=False),
+        ExecuteProcess(cmd=['v4l2-ctl', '-d', '/dev/video0', '-c', 'exposure_dynamic_framerate=0'], shell=False),
+
 
         # Nodo de conversión de nube de puntos a láser
         Node(
@@ -146,11 +132,12 @@ def generate_launch_description():
         ),
 
         # Base móvil y sensores
-        ranger_launch,
-        hokuyo_launch,
-        astra_camera_launch,
-        # orbbec_camera_launch,
+         ranger_launch,
+         hokuyo_launch,
+        #  astra_camera_launch,
+        #  orbbec_camera_launch,
+        #  scan_merger_node,
 
         # NUEVO: Nodo de la cámara USB
-        usb_cam_node
+        # usb_cam_node
     ])

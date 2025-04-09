@@ -8,16 +8,9 @@ usb_cam_node:
     camera_name: "sancho_camera"
     camera_info_url: "package://sancho_bringup/config/camera_info_high.yaml"
 
-    # Controles Manuales
-    brightness: 128
+    # SOLO estos parámetros que son seguros:
+    brightness: 64
     contrast: 32
     saturation: 32
-    sharpness: 32
-
-    # Desactivar automáticos
-    auto_focus: false
-    focus_absolute: 0
-    auto_exposure: false
-    exposure_absolute: 200
-    auto_white_balance: false
-    white_balance_temperature: 4500
+    sharpness: 2
+    gamma: 120
