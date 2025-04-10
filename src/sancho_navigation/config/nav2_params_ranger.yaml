@@ -156,8 +156,7 @@ controller_server:
       - "nav2_regulated_pure_pursuit_controller"
       - "dwb_core"
 
- 
-    
+
 controller_server_rclcpp_node:
   ros__parameters:
     use_sim_time: False
@@ -272,10 +271,11 @@ global_costmap:
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         enabled: true
-        inflation_radius: 0.31   # Incrementado para favorecer trayectorias suaves
-        cost_scaling_factor: 3.0  # Gradiente de coste más suave
+        inflation_radius: 0.7       # Mucho mayor que el radio inscrito (~0.275 m)
+        cost_scaling_factor: 1.5    # Coste decrece de forma gradual
         inflate_unknown: true
         inflate_around_unknown: true
+
 
       # Costmap completo
       always_send_full_costmap: True
@@ -364,10 +364,11 @@ local_costmap:
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         enabled: true
-        inflation_radius: 0.31     # Incrementado ligeramente para mayor suavidad
-        cost_scaling_factor: 3.0
+        inflation_radius: 0.4       # Mucho mayor que el radio inscrito (~0.275 m)
+        cost_scaling_factor: 2.0    # Coste decrece de forma gradual
         inflate_unknown: true
         inflate_around_unknown: true
+
 
       # Proxemics layer local
       # proxemics_layer:
