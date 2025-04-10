@@ -126,18 +126,26 @@ controller_server:
       vx_std: 0.2
       vy_std: 0.2
       wz_std: 0.4
-      vx_max: 0.5
-      vx_min: -0.35
-      vy_max: 0.5
-      # Si el robot es de tipo diferencial, vy normalmente es 0,
-      # ajusta o elimina si no aplica
-      wz_max: 1.9
-      iteration_count: 1
+
+      vx_max: 0.4 # velocidad máxima
+      vx_min: 0.0
+
+      vy_max: 0.0
+      vy_min: -0.0
+
+      wz_max: 1.0
+
+      ax_max: 0.5
+      ax_min: -0.5
+
+      az_max: 1.0
+      
+      iteration_count: 1 
       prune_distance: 1.7
       transform_tolerance: 0.1
       temperature: 0.3
       gamma: 0.015
-      motion_model: "DiffDrive"
+      motion_model: "Ackermann"
       visualize: false
 
       TrajectoryVisualizer:
@@ -145,22 +153,19 @@ controller_server:
         time_step: 3
 
       AckermannConstraints:
-        min_turning_r: 0.2
+        min_turning_r: 0.4764
 
       # Críticos integrados para evaluaciones de trayectorias
-      # critics: 
-      #   - "ConstraintCritic"
-      #   - "CostCritic"
-      #   - "GoalCritic"
-      #   - "GoalAngleCritic"
-      #   - "PathAlignCritic"
-      #   - "PathFollowCritic"
-      #   - "PathAngleCritic"
-      #   - "PreferForwardCritic"
+      critics: 
+         - "ConstraintCritic"
+         - "CostCritic"
+         - "GoalCritic"
+         - "GoalAngleCritic"
+         - "PathAlignCritic"
+         - "PathFollowCritic"
+         - "PathAngleCritic"
+         - "PreferForwardCritic"
         # - "VelocityDeadbandCritic"  # Opcional, para suavizar cambios muy pequeños
-        # - "TwirlingCritic"           # Opcional, para penalizar giros sin avance
-        # - "ObstaclesCritic"          # Opcional, si decides usar información de obstáculos dinámica
-        # - "SocialCritic"             # Opcional, si integras una capa de costo social
 
       ConstraintCritic:
         enabled: true
@@ -232,14 +237,6 @@ controller_server:
         enabled: true
         twirling_cost_power: 1
         twirling_cost_weight: 8.0
-
-      # En entornos sociales, si cuentas con datos de zonas seguras, podrías agregar:
-      # SocialCritic:
-      #   enabled: true
-      #   cost_power: 1
-      #   cost_weight: 6.0
-      #   safe_distance: 0.8   # Distancia mínima deseada respecto a humanos u obstáculos dinámicos
-
 
     velocity_smoother:
       plugin: "nav2_velocity_smoother::VelocitySmoother"
