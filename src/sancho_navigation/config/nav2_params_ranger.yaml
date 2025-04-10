@@ -172,13 +172,33 @@ planner_server:
     SmacHybridPlanner:
       plugin: "nav2_smac_planner/SmacPlannerHybrid"
       tolerance: 0.5
-      
-      # Parámetros críticos para tu cinemática Ackermann/diferencial
-      motion_model_for_search: "REEDS_SHEPP"
-      minimum_turning_radius: 0.3  # 0.3m es un buen punto inicial. Ajustable.
-      angle_quantization_bins: 42  # precisión angular (5 grados), ajustable según CPU
-      analytic_expansion_ratio: 3.5  # expansión analítica más rápida cerca de la meta
-      max_planning_time: 5.0  # segundos máximo de planeación
+      downsample_costmap: false
+      downsampling_factor: 1
+      allow_unknown: false
+      max_iterations: 1000000
+      max_on_approach_iterations: 1000
+      terminal_checking_interval: 5000
+      max_planning_time: 5.0
+      motion_model_for_search: "DUBIN"  # o "REEDS_SHEPP" si quieres marcha atrás
+      cost_travel_multiplier: 2.0
+      cost_penalty: 2.0
+      angle_quantization_bins: 36
+      analytic_expansion_ratio: 2.5
+      analytic_expansion_max_length: 2.0
+      analytic_expansion_max_cost: 200
+      analytic_expansion_max_cost_override: false
+      minimum_turning_radius: 0.40
+      reverse_penalty: 2.1
+      change_penalty: 1.0
+      non_straight_penalty: 1.5
+      retrospective_penalty: 0.025
+      rotation_penalty: 7.0
+      lookup_table_size: 20.0
+      cache_obstacle_heuristic: true
+      allow_reverse_expansion: false
+      smooth_path: true
+      debug_visualizations: false
+
       smoother:
         smoother_plugin: "nav2_smac_planner/ConjugateGradientSmoother"
         tolerance: 1e-10
