@@ -48,10 +48,11 @@ bt_navigator:
     groot_zmq_publisher_port: 1666
     groot_zmq_server_port: 1667
 
-    default_nav_to_pose_bt_xml: "/home/mapir/sancho_ws/src/sancho_navigation/bt/navigate_to_pose_custom.xml"
+    default_nav_to_pose_bt_xml: "/home/mapir/sancho_ws/src/sancho_navigation/bt/testBT.xml"
 
 
     plugin_lib_names:
+      - social_bt_nodes
       - nav2_compute_path_to_pose_action_bt_node
       - nav2_compute_path_through_poses_action_bt_node
       - nav2_follow_path_action_bt_node
