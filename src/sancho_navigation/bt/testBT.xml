@@ -1,0 +1,101 @@
+<root main_tree_to_execute="SocialNavigateToPose">
+  <BehaviorTree ID="SocialNavigateToPose">
+
+    <!-- Nodo de recuperación general: 4 intentos para todo -->
+    <RecoveryNode number_of_retries="4" name="NavigateRecovery">
+
+      <PipelineSequence>
+
+        <!-- Planificación inicial controlada por avance -->
+        <DistanceController distance="0.5">
+          <RecoveryNode number_of_retries="1" name="RecoveryComputePathToPose">
+            <Fallback name="FallbackComputePathToPose">
+
+              <!-- Solo replanificar si es necesario -->
+              <ReactiveSequence>
+                <GlobalUpdatedGoal/>
+                <IsPathValid path="{path}"/>
+              </ReactiveSequence>
+
+              <!-- Planificar nueva ruta -->
+              <ComputePathToPose goal="{goal}" path="{path}" planner_id="SmacPlannerHybrid"/>
+            </Fallback>
+
+            <!-- Recuperación suave si falla: limpiar alrededor -->
+            <ClearCostmapAroundRobot/>
+          </RecoveryNode>
+        </DistanceController>
+
+        <!-- Suavizar el camino -->
+        <SmoothPath path="{path}" smoothed_path="{path}"/>
+
+        <!-- Lógica social: espera si humano bloquea -->
+        <ReactiveFallback name="SocialAwareness">
+
+          <Sequence name="WaitIfHumanBlocking">
+            <IsHumanBlocking/>
+
+            <!-- Esperar 3 segundos educadamente -->
+            <Wait wait_duration="3.0"/>
+
+            <!-- Después de esperar, si sigue el bloqueo, replanificar -->
+            <Fallback name="AfterWaiting">
+              <IsHumanBlocking/>
+
+              <!-- Si sigue bloqueado, planificar nueva ruta -->
+              <ComputePathToPose goal="{goal}" path="{path}" planner_id="SmacPlannerHybrid"/>
+            </Fallback>
+          </Sequence>
+
+          <!-- Si no hay humanos bloqueando, seguir ruta normal -->
+          <RecoveryNode number_of_retries="1" name="RecoveryFollowPath">
+            <SpeedController min_speed="0.05">
+              <FollowPath path="{path}" controller_id="FollowPath"/>
+            </SpeedController>
+
+            <!-- Si falla el seguimiento: limpiar costmap alrededor -->
+            <ClearCostmapAroundRobot/>
+          </RecoveryNode>
+
+        </ReactiveFallback>
+
+        <!-- Verificar si se llegó al objetivo -->
+        <GoalReached/>
+
+      </PipelineSequence>
+
+      <!-- Recuperaciones sociales finales -->
+      <ReactiveFallback name="FallbackRecoveries">
+
+        <!-- Si cambia la meta, replanificar -->
+        <GoalUpdated/>
+
+        <RoundRobin name="SocialRecoveryActions">
+
+          <!-- Confirmar que realmente estamos atascados -->
+          <IsStuck/>
+
+          <!-- Esperar un poco y limpiar área limitada -->
+          <Sequence name="WaitAndClear">
+            <Wait wait_duration="3.0"/>
+            <TimeExpired duration="5.0"/>
+            <ClearCostmapExceptRegion service_name="local_costmap/clear_except_region"/>
+          </Sequence>
+
+          <!-- Retroceder suavemente -->
+          <BackUp backup_dist="0.20" backup_speed="0.05"/>
+
+          <!-- Girar lentamente para buscar salidas -->
+          <Spin spin_dist="1.57"/>
+
+          <!-- Última opción: limpiar todo el costmap -->
+          <ClearEntireCostmap service_name="global_costmap/clear_entirely_global_costmap"/>
+
+        </RoundRobin>
+
+      </ReactiveFallback>
+
+    </RecoveryNode>
+
+  </BehaviorTree>
+</root>
