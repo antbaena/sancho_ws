@@ -1,48 +1,73 @@
 #include <memory>
 #include <string>
-#include <vector>
-#include <cmath>
-
+#include "nav2_behavior_tree/bt_action_node.hpp"
+#include "behaviortree_cpp_v3/condition_node.h"
 #include "rclcpp/rclcpp.hpp"
-#include "nav2_behavior_tree/bt_conversions.hpp"
-#include "nav2_behavior_tree/condition_node.hpp"
 #include "people_msgs/msg/people.hpp"
-#include "geometry_msgs/msg/point.hpp"
+#include "tf2_ros/transform_listener.h"
+#include "tf2_ros/buffer.h"
+#include "geometry_msgs/msg/transform_stamped.hpp"
 
-namespace social_bt_nodes
+namespace nav2_behavior_tree
 {
 
-class IsHumanBlocking : public nav2_behavior_tree::ConditionNode
+class IsHumanInPathCondition : public BT::ConditionNode
 {
 public:
-  IsHumanBlocking(const std::string & name, const BT::NodeConfiguration & config)
-  : nav2_behavior_tree::ConditionNode(name, config)
+  IsHumanInPathCondition(const std::string & name, const BT::NodeConfiguration & conf)
+  : BT::ConditionNode(name, conf),
+    node_(rclcpp::Node::make_shared("is_human_in_path_bt_node")),
+    tf_buffer_(node_->get_clock()),
+    tf_listener_(tf_buffer_)
   {
-    node_ = rclcpp::Node::make_shared("is_human_blocking_node");
     people_sub_ = node_->create_subscription<people_msgs::msg::People>(
-      "/people", rclcpp::QoS(10),
-      std::bind(&IsHumanBlocking::peopleCallback, this, std::placeholders::_1));
+      "/people", 10,
+      std::bind(&IsHumanInPathCondition::peopleCallback, this, std::placeholders::_1));
   }
 
   static BT::PortsList providedPorts()
   {
-    return {};
+    return { };
+  }
+
+  void peopleCallback(const people_msgs::msg::People::SharedPtr msg)
+  {
+    latest_people_msg_ = msg;
   }
 
   BT::NodeStatus tick() override
   {
-    rclcpp::spin_some(node_);
+    if (!latest_people_msg_) {
+      // No hemos recibido todavía el mensaje
+      return BT::NodeStatus::FAILURE;
+    }
 
-    for (const auto & person : people_)
-    {
-      double dx = person.position.x;
-      double dy = person.position.y;
-      double distance = std::sqrt(dx * dx + dy * dy);
+    // Obtener la pose actual del robot
+    geometry_msgs::msg::TransformStamped transform;
+    try {
+      transform = tf_buffer_.lookupTransform("map", "base_link", tf2::TimePointZero);
+    } catch (tf2::TransformException & ex) {
+      RCLCPP_WARN(node_->get_logger(), "No TF disponible: %s", ex.what());
+      return BT::NodeStatus::FAILURE;
+    }
 
-      // Verifica si la persona está dentro de 1.0 metro y en el frente del robot
-      if (distance < 1.0 && std::abs(dy) < 0.5)
-      {
-        RCLCPP_INFO(node_->get_logger(), "Persona detectada bloqueando el camino.");
+    double robot_x = transform.transform.translation.x;
+    double robot_y = transform.transform.translation.y;
+
+    // Comprobamos cada persona
+    for (const auto & person : latest_people_msg_->people) {
+      double dx = person.position.x - robot_x;
+      double dy = person.position.y - robot_y;
+      double distance = std::hypot(dx, dy);
+
+      // Opcional: filtrar personas muy lejanas
+      if (distance > 2.0) {  // sólo mirar personas en un radio de 2 metros
+        continue;
+      }
+
+      // Simple: considerar "en el camino" si está en frente del robot
+      if (dx > 0 && std::abs(dy) < 0.5) {
+        // Persona en un cono estrecho al frente (dx positivo, dy pequeño)
         return BT::NodeStatus::SUCCESS;
       }
     }
@@ -51,17 +76,18 @@ public:
   }
 
 private:
-  void peopleCallback(const people_msgs::msg::People::SharedPtr msg)
-  {
-    people_ = msg->people;
-  }
-
   rclcpp::Node::SharedPtr node_;
   rclcpp::Subscription<people_msgs::msg::People>::SharedPtr people_sub_;
-  std::vector<people_msgs::msg::Person> people_;
+  people_msgs::msg::People::SharedPtr latest_people_msg_;
+  tf2_ros::Buffer tf_buffer_;
+  tf2_ros::TransformListener tf_listener_;
 };
 
-}  // namespace social_bt_nodes
+}  // namespace nav2_behavior_tree
 
-#include "pluginlib/class_list_macros.hpp"
-PLUGINLIB_EXPORT_CLASS(social_bt_nodes::IsHumanBlocking, BT::ConditionNode)
+// Registrar el nodo
+#include "behaviortree_cpp_v3/bt_factory.h"
+BT_REGISTER_NODES(factory)
+{
+  factory.registerNodeType<nav2_behavior_tree::IsHumanInPathCondition>("IsHumanInPath");
+}

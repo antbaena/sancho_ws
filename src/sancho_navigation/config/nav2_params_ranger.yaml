@@ -103,7 +103,6 @@ controller_server:
 
     progress_checker_plugin: "progress_checker"
     goal_checker_plugins: ["general_goal_checker"]  # o "precise_goal_checker"
-    controller_plugins: ["nav2_mppi_controller"]
     smoother_plugins: ["velocity_smoother"]
 
     # Progress checker parameters

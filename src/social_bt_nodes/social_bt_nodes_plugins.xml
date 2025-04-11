@@ -1,7 +1,0 @@
-<library path="social_bt_nodes">
-  <class name="social_bt_nodes::IsHumanBlocking"
-         type="social_bt_nodes::IsHumanBlocking"
-         base_class_type="BT::ConditionNode">
-    <description>Verifica si una persona está bloqueando el camino del robot.</description>
-  </class>
-</library>
