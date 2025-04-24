@@ -11,6 +11,12 @@ def generate_launch_description():
         "config",
         "nav2_params_ranger.yaml",
     )
+    # Ruta al archivo de parámetros de depthimage_to_laserscan
+    depthimage_to_laserscan_params = os.path.join(
+        get_package_share_directory("sancho_navigation"),
+        "config",
+        "depthimage_to_laserscan_params.yaml",
+    )
 
     return LaunchDescription(
         [
@@ -117,17 +123,7 @@ def generate_launch_description():
                 package="depthimage_to_laserscan",
                 executable="depthimage_to_laserscan_node",  # Verifica el nombre del ejecutable según la documentación
                 name="depthimage_to_laserscan",
-                parameters=[
-                    {
-                        "output_frame": "camera_link",  # Ajusta según tu configuración de TF
-                        "range_min": 0.1,  # Rango mínimo (ajusta según tu sensor)
-                        "range_max": 10.0,  # Rango máximo (ajusta según tu sensor)
-                        "scan_height": 5,  # Número de filas de la imagen a usar para la conversión
-                        # Otros parámetros opcionales:
-                        "use_inf": True,
-                        "inf_epsilon": 1.0,
-                    }
-                ],
+                parameters=[depthimage_to_laserscan_params],    
                 remappings=[
                     # Se remapean los nombres de los topics internos a los de tu sensor:
                     ("depth_camera_info", "/astra_camera/camera/depth/camera_info"),

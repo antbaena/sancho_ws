@@ -37,6 +37,21 @@ class MoveNetPostprocessingNode(LifecycleNode):
         self.skeleton_markers_pub = None
         self.people_pub = None
 
+        self.expected_kpts = 17
+        self.skel_conns  = [
+                    (0, 1), (0, 2), (1, 3), (2, 4),
+                    (0, 5), (0, 6), (5, 7), (7, 9),
+                    (6, 8), (8, 10), (5, 11), (6, 12),
+                    (11, 13), (13, 15), (12, 14), (14, 16)
+                ]
+        self.point_marker_template = Marker(
+            type=Marker.SPHERE_LIST,
+            scale=Vector3(0.05,0.05,0.05),
+            color=ColorRGBA(1,0,0,1),
+            lifetime=Duration(sec=1)
+        )
+
+
         self.declare_parameter('depth_window_size', 3)
         self.declare_parameter('keypoint_score_threshold', 0.4)
 
@@ -111,169 +126,163 @@ class MoveNetPostprocessingNode(LifecycleNode):
         self.camera_info = msg
 
     def sync_callback(self, detections_msg, depth_msg):
-        # Verificar que camera_info esté disponible
         if self.camera_info is None:
             self.get_logger().warn("camera_info aún no disponible, omitiendo procesamiento de este ciclo.")
             return
 
-        # Convertir imagen de profundidad
         try:
             depth_image = self.bridge.imgmsg_to_cv2(depth_msg, desired_encoding='passthrough')
         except CvBridgeError as e:
             self.get_logger().error(f"Error al convertir imagen de profundidad: {e}")
             return
 
+        persons_3d_msg = self._procesar_detecciones_3d(detections_msg, depth_image)
+        self.keypoints3d_pub.publish(persons_3d_msg)
+
+        people_msg = self._generar_people_msg(detections_msg.header, persons_3d_msg)
+        if people_msg.people:
+            self.people_pub.publish(people_msg)
+
+        skeleton_marker_array = self._generar_visualizaciones(detections_msg, persons_3d_msg)
+        self.skeleton_markers_pub.publish(skeleton_marker_array)
+
+        self.get_logger().info("Publicadas detecciones 3D y esqueletos.")
+
+
+    def _procesar_detecciones_3d(self, detections_msg, depth_image):
         persons_3d_msg = PersonsPoses()
         persons_3d_msg.header = detections_msg.header
-        skeleton_marker_array = MarkerArray()
-
-        # Constante: número esperado de keypoints (por ejemplo, 17)
-        EXPECTED_KEYPOINTS = 17
 
         for person in detections_msg.persons:
             new_person = PersonPose()
             new_person.header = person.header
             new_person.id = person.id
-            new_person.keypoints = [0.0] * 34  # Dejamos los keypoints 2D en cero
             new_person.scores = person.scores
 
             keypoints_3d = []
             depths = []
+            keypoints = [(int(person.keypoints[i]), int(person.keypoints[i+1])) for i in range(0, len(person.keypoints), 2)]
 
-            # Convertir la lista aplanada en una lista de tuplas (x, y)
-            keypoints = [(int(person.keypoints[i]), int(person.keypoints[i+1]))
-                        for i in range(0, len(person.keypoints), 2)]
             for (x, y), score in zip(keypoints, person.scores):
-                if score > self.keypoint_score_threshold and (0 <= x < depth_image.shape[1] and 0 <= y < depth_image.shape[0]):
+                if score > self.keypoint_score_threshold and 0 <= x < depth_image.shape[1] and 0 <= y < depth_image.shape[0]:
                     depth_val = get_depth_value(x, y, depth_image, self.depth_window_size)
-                    if depth_val == 0:
-                        keypoints_3d.extend([0.0, 0.0, 0.0])
-                    else:
+                    if depth_val and depth_val > 0:
                         pt3d = convert_2d_to_3d(x, y, depth_val, self.camera_info)
                         keypoints_3d.extend([float(pt3d[0]), float(pt3d[1]), float(pt3d[2])])
                         depths.append(depth_val)
-                else:
-                    keypoints_3d.extend([0.0, 0.0, 0.0])
+                        continue
+                keypoints_3d.extend([0.0, 0.0, 0.0])  # por defecto si no hay valor
+
+            valid_count = sum(1 for i in range(0, len(keypoints_3d), 3) if tuple(keypoints_3d[i:i+3]) != (0.0, 0.0, 0.0))
+            if valid_count < self.min_valid_keypoints:
+                continue  # saltamos personas con muy pocos puntos válidos
+
+            new_person.keypoints = person.keypoints
             new_person.keypoints3d = keypoints_3d
             new_person.avg_depth = float(np.mean(depths)) if depths else 0.0
-
             persons_3d_msg.persons.append(new_person)
 
-            # Procesar marcadores solo si se tienen el número esperado de keypoints 3D
-            if len(keypoints_3d) == EXPECTED_KEYPOINTS * 3:
-                # Convertir la lista plana en una lista de tuplas (x,y,z)
-                points_3d = [(keypoints_3d[i], keypoints_3d[i+1], keypoints_3d[i+2])
-                            for i in range(0, len(keypoints_3d), 3)]
-                # Conexiones del esqueleto (según MoveNet)
-                skeleton_connections = [
-                    (0, 1), (0, 2), (1, 3), (2, 4),
-                    (0, 5), (0, 6), (5, 7), (7, 9),
-                    (6, 8), (8, 10), (5, 11), (6, 12),
-                    (11, 13), (13, 15), (12, 14), (14, 16)
-                ]
+        return persons_3d_msg
 
-                # Marker para los puntos (articulaciones)
-                points_marker = Marker()
-                points_marker.header = detections_msg.header
-                points_marker.ns = f"skeleton_points_{person.id}"
-                points_marker.id = person.id * 2  # ID único
-                points_marker.type = Marker.SPHERE_LIST
-                points_marker.action = Marker.ADD
-                points_marker.scale.x = 0.05
-                points_marker.scale.y = 0.05
-                points_marker.scale.z = 0.05
-                points_marker.color.r = 1.0
-                points_marker.color.g = 0.0
-                points_marker.color.b = 0.0
-                points_marker.color.a = 1.0
-                points_marker.lifetime.sec = 1
-                for point in points_3d:
-                    if point != (0.0, 0.0, 0.0):
-                        points_marker.points.append(Point(x=point[0], y=point[1], z=point[2]))
-                skeleton_marker_array.markers.append(points_marker)
 
-                # Marker para los huesos (líneas)
-                lines_marker = Marker()
-                lines_marker.header = detections_msg.header
-                lines_marker.ns = f"skeleton_lines_{person.id}"
-                lines_marker.id = person.id * 2 + 1  # ID único
-                lines_marker.type = Marker.LINE_LIST
-                lines_marker.action = Marker.ADD
-                lines_marker.scale.x = 0.02  # Grosor de la línea
-                # Generar color aleatorio para las líneas
-                color_r = random.random()
-                color_g = random.random()
-                color_b = random.random()
-                lines_marker.color.r = color_r
-                lines_marker.color.g = color_g
-                lines_marker.color.b = color_b
-                lines_marker.color.a = 1.0
-                lines_marker.lifetime.sec = 1
-                for idx1, idx2 in skeleton_connections:
-                    p1 = points_3d[idx1]
-                    p2 = points_3d[idx2]
-                    if not (p1 == (0.0, 0.0, 0.0) or p2 == (0.0, 0.0, 0.0)):
-                        lines_marker.points.append(Point(x=p1[0], y=p1[1], z=p1[2]))
-                        lines_marker.points.append(Point(x=p2[0], y=p2[1], z=p2[2]))
-                skeleton_marker_array.markers.append(lines_marker)
+    def _generar_visualizaciones(self, detections_msg, persons_3d_msg):
+        skeleton_marker_array = MarkerArray()
 
-                # Marker de texto para mostrar el ID de la persona
-                text_marker = Marker()
-                text_marker.header = detections_msg.header
-                text_marker.ns = "skeleton_text"
-                text_marker.id = 1000 + person.id  # Evitar colisión de IDs
-                text_marker.type = Marker.TEXT_VIEW_FACING
-                text_marker.action = Marker.ADD
-                text_marker.scale.z = 0.2  # Tamaño del texto
-                text_marker.color.r = 1.0
-                text_marker.color.g = 1.0
-                text_marker.color.b = 1.0
-                text_marker.color.a = 1.0
-                text_marker.pose.position.x = points_3d[0][0]
-                text_marker.pose.position.y = points_3d[0][1]
-                text_marker.pose.position.z = points_3d[0][2] + 0.3  # Posicionar el texto por encima de la cabeza
-                text_marker.text = f"ID{person.id}"
-                text_marker.lifetime.sec = 1
-                skeleton_marker_array.markers.append(text_marker)
-            else:
-                self.get_logger().debug(f"Persona {person.id}: número de keypoints 3D inesperado ({len(keypoints_3d)} valores).")
-
-        # Publicar mensaje de personas 3D
-        self.keypoints3d_pub.publish(persons_3d_msg)
-
-        # Construir y publicar mensaje de People
-        people_msg = People()
-        people_msg.header = detections_msg.header
         for person in persons_3d_msg.persons:
-            # Se publica solo si la profundidad promedio es razonable (> 1.0)
+            keypoints_3d = person.keypoints3d
+            if len(keypoints_3d) != self.expected_kpts * 3:
+                self.get_logger().debug(f"Persona {person.id}: número de keypoints 3D inesperado.")
+                continue
+
+            points_3d = {
+                idx: (x, y, z)
+                for idx, (x, y, z) in enumerate(zip(*[iter(keypoints_3d)] * 3))
+                if (x, y, z) != (0.0, 0.0, 0.0)
+            }
+
+            skeleton_marker_array.markers.append(self._crear_marker_puntos(detections_msg.header, person.id, points_3d))
+            skeleton_marker_array.markers.append(self._crear_marker_lineas(detections_msg.header, person.id, points_3d))
+            skeleton_marker_array.markers.append(self._crear_marker_texto(detections_msg.header, person.id, points_3d))
+
+        return skeleton_marker_array
+
+
+    def _crear_marker_puntos(self, header, person_id, points_3d):
+        marker = Marker()
+        marker.header = header
+        marker.ns = f"skeleton_points_{person_id}"
+        marker.id = person_id * 2
+        marker.type = Marker.SPHERE_LIST
+        marker.action = Marker.ADD
+        marker.scale.x = marker.scale.y = marker.scale.z = 0.05
+        marker.color.r = 1.0
+        marker.color.a = 1.0
+        marker.lifetime.sec = 1
+
+        for pt in points_3d.values():
+            marker.points.append(Point(x=pt[0], y=pt[1], z=pt[2]))
+
+        return marker
+
+
+    def _crear_marker_lineas(self, header, person_id, points_3d):
+        marker = Marker()
+        marker.header = header
+        marker.ns = f"skeleton_lines_{person_id}"
+        marker.id = person_id * 2 + 1
+        marker.type = Marker.LINE_LIST
+        marker.action = Marker.ADD
+        marker.scale.x = 0.02
+        marker.color.r = random.random()
+        marker.color.g = random.random()
+        marker.color.b = random.random()
+        marker.color.a = 1.0
+        marker.lifetime.sec = 1
+
+        for idx1, idx2 in self.skel_conns:
+            if idx1 in points_3d and idx2 in points_3d:
+                p1 = points_3d[idx1]
+                p2 = points_3d[idx2]
+                marker.points.extend([Point(x=p1[0], y=p1[1], z=p1[2]), Point(x=p2[0], y=p2[1], z=p2[2])])
+
+        return marker
+
+
+    def _crear_marker_texto(self, header, person_id, points_3d):
+        marker = Marker()
+        marker.header = header
+        marker.ns = "skeleton_text"
+        marker.id = 1000 + person_id
+        marker.type = Marker.TEXT_VIEW_FACING
+        marker.action = Marker.ADD
+        marker.scale.z = 0.2
+        marker.color.r = marker.color.g = marker.color.b = marker.color.a = 1.0
+        marker.pose.position.x = points_3d[0][0]
+        marker.pose.position.y = points_3d[0][1]
+        marker.pose.position.z = points_3d[0][2] + 0.3
+        marker.text = f"ID{person_id}"
+        marker.lifetime.sec = 1
+
+        return marker
+
+
+    def _generar_people_msg(self, header, persons_3d_msg):
+        people_msg = People()
+        people_msg.header = header
+
+        for person in persons_3d_msg.persons:
             if person.avg_depth > 1.0:
                 p = Person()
                 p.name = f"person_{person.id}"
+                x,y,z = person.keypoints3d[0:3]
+                if x == 0.0 and y == 0.0 and z == 0.0:
+                    continue
                 p.position = Point(
                     x=float(person.keypoints3d[0]),
                     y=float(person.keypoints3d[1]),
                     z=float(person.keypoints3d[2])
                 )
-                p.velocity = Point(x=0.0, y=0.0, z=0.0)  # Se puede estimar la velocidad si es necesario
+                p.velocity = Point(x=0.0, y=0.0, z=0.0)
                 people_msg.people.append(p)
-        if people_msg.people:
-            self.people_pub.publish(people_msg)
 
-        self.skeleton_markers_pub.publish(skeleton_marker_array)
-        self.get_logger().info("Publicadas detecciones 3D y esqueletos.")
-
-def main(args=None):
-    rclpy.init(args=args)
-    node = MoveNetPostprocessingNode()
-    try:
-        rclpy.spin(node)
-    except KeyboardInterrupt:
-        node.get_logger().info("Interrupción por teclado, cerrando nodo de postprocesamiento...")
-    except Exception as e:
-        node.get_logger().error(f"Error inesperado: {e}")
-    finally:
-        node.destroy_node()
-        rclpy.shutdown()
-
-if __name__ == '__main__':
-    main()
+        return people_msg
