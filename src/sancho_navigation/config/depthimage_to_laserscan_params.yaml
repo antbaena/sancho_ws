@@ -1,0 +1,15 @@
+pointcloud_to_laserscan_node:
+  ros__parameters:
+    min_height: 0.7
+    max_height: 0.9
+    angle_min: -3.14
+    angle_max: 3.14
+    angle_increment: 0.0087
+    scan_time: 0.033
+    range_min: 0.4
+    range_max: 10.0
+    use_inf: true
+    inf_epsilon: 1.0
+    target_frame: "base_link"
+    transform_tolerance: 0.01
+    output_frame: "camera_link"
