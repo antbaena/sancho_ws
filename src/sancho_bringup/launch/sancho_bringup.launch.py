@@ -134,9 +134,9 @@ def generate_launch_description():
         # Base móvil y sensores
          ranger_launch,
          hokuyo_launch,
-        #  astra_camera_launch,
+          astra_camera_launch,
         #  orbbec_camera_launch,
-        #  scan_merger_node,
+         scan_merger_node,
 
         # NUEVO: Nodo de la cámara USB
         # usb_cam_node
