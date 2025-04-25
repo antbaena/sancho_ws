@@ -3,7 +3,7 @@
 
 import rclpy
 from rclpy.lifecycle import LifecycleNode
-from rclpy.lifecycle import State
+from rclpy.lifecycle import LifecycleState
 from rclpy.lifecycle import TransitionCallbackReturn
 from rclpy.duration import Duration
 from rclpy.qos import QoSProfile
@@ -45,7 +45,7 @@ class GroupDetectionNode(LifecycleNode):
         self.last_msg_timestamp = None
         self.group_active = False
 
-    def on_configure(self, state: State) -> TransitionCallbackReturn:
+    def on_configure(self, state: LifecycleState) -> TransitionCallbackReturn:
         self.get_logger().info("Configurando nodo...")
 
         self.group_distance_threshold = self.get_parameter('group_distance_threshold').value
@@ -58,25 +58,37 @@ class GroupDetectionNode(LifecycleNode):
         self.detection_timeout = self.get_parameter('detection_timeout').value
         self.message_timeout = self.get_parameter('message_timeout').value
 
-        return TransitionCallbackReturn.SUCCESS
 
-    def on_activate(self, state: State) -> TransitionCallbackReturn:
+        self.group_pub = self.create_lifecycle_publisher(GroupInfo, self.group_topic, 10)
+        self.marker_pub = self.create_lifecycle_publisher(Marker, '/group_marker', 10)
+        self.timer = self.create_timer(self.check_period, self.timer_callback)
+        self.timer.cancel()
+
+        return super().on_configure(state)
+
+    def on_activate(self, state: LifecycleState) -> TransitionCallbackReturn:
         self.get_logger().info("Activando nodo...")
 
         qos = QoSProfile(depth=10)
 
-        # Creación de publicadores y suscriptores
-        self.group_pub = self.create_publisher(GroupInfo, self.group_topic, qos)
-        self.marker_pub = self.create_publisher(Marker, '/group_marker', qos)
         self.persons_sub = self.create_subscription(PoseArray, self.persons_topic, self.poses_callback, qos)
+        self.timer.reset()  # Reiniciar el timer para el chequeo de persistencia
 
-        # Timer para chequeo de persistencia
-        self.timer = self.create_timer(self.check_period, self.timer_callback)
+        return super().on_activate(state)
 
-        return TransitionCallbackReturn.SUCCESS
-
-    def on_deactivate(self, state: State) -> TransitionCallbackReturn:
+    def on_deactivate(self, state: LifecycleState) -> TransitionCallbackReturn:
         self.get_logger().info("Desactivando nodo...")
+
+        self.timer.cancel()
+        self.timer = None
+
+        self.destroy_subscription(self.persons_sub)
+        self.persons_sub = None
+
+        return super().on_deactivate(state)
+
+    def on_cleanup(self, state: LifecycleState) -> TransitionCallbackReturn:
+        self.get_logger().info("Limpiando recursos del nodo...")
 
         self.destroy_timer(self.timer)
         self.timer = None
@@ -90,24 +102,30 @@ class GroupDetectionNode(LifecycleNode):
         self.destroy_subscription(self.persons_sub)
         self.persons_sub = None
 
-        return TransitionCallbackReturn.SUCCESS
-
-    def on_cleanup(self, state: State) -> TransitionCallbackReturn:
-        self.get_logger().info("Limpiando recursos del nodo...")
-
         self.reset_group_detection()
 
-        return TransitionCallbackReturn.SUCCESS
+        return super().on_cleanup(state)
 
-    def on_shutdown(self, state: State) -> TransitionCallbackReturn:
+    def on_shutdown(self, state: LifecycleState) -> TransitionCallbackReturn:
         self.get_logger().info("Apagando nodo...")
 
-        return TransitionCallbackReturn.SUCCESS
+        self.destroy_timer(self.timer)
+        self.timer = None
 
-    def on_error(self, state: State) -> TransitionCallbackReturn:
+        self.destroy_publisher(self.group_pub)
+        self.group_pub = None
+
+        self.destroy_publisher(self.marker_pub)
+        self.marker_pub = None
+
+        self.destroy_subscription(self.persons_sub)
+        self.persons_sub = None
+        return super().on_shutdown(state)
+
+    def on_error(self, state: LifecycleState) -> TransitionCallbackReturn:
         self.get_logger().error("Ha ocurrido un error. Nodo pasando a estado de error...")
         self.reset_group_detection()
-        return TransitionCallbackReturn.SUCCESS
+        return super().on_error(state)
 
     def poses_callback(self, msg: PoseArray):
         current_timestamp = msg.header.stamp
@@ -232,3 +250,21 @@ class GroupDetectionNode(LifecycleNode):
         self.last_detection_time = None
         self.group_active = False
 
+def main(args=None):
+    rclpy.init(args=args)
+
+    # Creamos el nodo de ciclo de vida
+    node = GroupDetectionNode()
+
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        # Limpieza
+        node.destroy_node()
+        rclpy.shutdown()
+
+
+if __name__ == '__main__':
+    main()

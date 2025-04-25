@@ -9,20 +9,25 @@ from cv_bridge import CvBridge, CvBridgeError
 import cv2 as cv
 from visualization_msgs.msg import Marker, MarkerArray
 from rcl_interfaces.msg import SetParametersResult
-from rclpy.lifecycle import LifecycleNode
-from rclpy.lifecycle import State
-from rclpy.lifecycle import TransitionCallbackReturn
+from rclpy.lifecycle import LifecycleNode, LifecycleState, TransitionCallbackReturn
+from rclpy.lifecycle import LifecyclePublisher
+import bondpy  
 
 from .movenet_utils import load_model, run_inference_on_image, process_detections
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
 
 class MoveNetInferenceNode(LifecycleNode):
     def __init__(self):
-        super().__init__('movenet_inference')
+        super().__init__('movenet_inference_node')
         self.get_logger().info("Iniciando nodo de inferencia MoveNet...")
         self.bridge = CvBridge()
+        self.detections_pub = None
+        self.marker_pub = None
+        self.image_sub = None
 
-    def on_configure(self, state: State) -> TransitionCallbackReturn:
+    def on_configure(self, state: LifecycleState) -> TransitionCallbackReturn:
         self.get_logger().info("Configurando nodo...")
         # Declarar parámetros configurables con valores predeterminados
         self.declare_parameter('mirror', False)
@@ -31,7 +36,7 @@ class MoveNetInferenceNode(LifecycleNode):
         self.declare_parameter('min_keypoints', 9)
         self.declare_parameter('model_url', "https://tfhub.dev/google/movenet/multipose/lightning/1")
         self.declare_parameter('visualize_markers', True)
-        self.declare_parameter('image_topic', '/astra_camera/camera/color/image_raw')
+        self.declare_parameter('image_topic', 'astra_camera/camera/color/image_raw')
         self.declare_parameter('debug', False)
 
         # Obtener los parámetros iniciales
@@ -56,10 +61,6 @@ class MoveNetInferenceNode(LifecycleNode):
             self.get_logger().error(f"Error al cargar el modelo: {e}")
             return TransitionCallbackReturn.FAILURE
 
-    
-        # Crear suscriptor con QoS adecuado para datos de sensores
-        qos_profile = rclpy.qos.qos_profile_sensor_data
-        self.create_subscription(Image, self.image_topic, self.image_callback, qos_profile)
 
         # Publicador para las detecciones "raw"
         self.detections_pub = self.create_lifecycle_publisher(PersonsPoses, '/movenet/raw_detections', 10)
@@ -68,38 +69,37 @@ class MoveNetInferenceNode(LifecycleNode):
         if self.visualize_markers:
             self.marker_pub = self.create_lifecycle_publisher(Image, self.image_topic + "/markers", 10)
 
+        
         return TransitionCallbackReturn.SUCCESS
 
     
-    def on_activate(self, state: State) -> TransitionCallbackReturn:
+    def on_activate(self, state: LifecycleState) -> TransitionCallbackReturn:
         self.get_logger().info("Activando nodo...")
-        self.detections_pub.activate()
-        if self.visualize_markers:
-            self.marker_pub.activate()
+        self.image_sub = self.create_subscription(Image, self.image_topic, self.image_callback, 10)
+        return super().on_activate(state)
 
-        return TransitionCallbackReturn.SUCCESS
-
-    def on_deactivate(self, state: State) -> TransitionCallbackReturn:
+    def on_deactivate(self, state: LifecycleState) -> TransitionCallbackReturn:
         self.get_logger().info("Desactivando nodo...")
-        self.detections_pub.deactivate()
-        if self.visualize_markers:
-            self.marker_pub.deactivate()
-
-        return TransitionCallbackReturn.SUCCESS
-
-    def on_cleanup(self, state: State) -> TransitionCallbackReturn:
+        return super().on_deactivate(state)
+    
+    def on_cleanup(self, state: LifecycleState) -> TransitionCallbackReturn:
         self.get_logger().info("Limpiando nodo...")
-        return TransitionCallbackReturn.SUCCESS
+        self.destroy_lifecycle_publisher(self.detections_pub)
+        self.destroy_lifecycle_publisher(self.marker_pub)
+        self.destroy_subscription(self.image_sub)
+        return super().on_cleanup(state)
 
-    def on_shutdown(self, state: State) -> TransitionCallbackReturn:
+    def on_shutdown(self, state: LifecycleState) -> TransitionCallbackReturn:
         self.get_logger().info("Apagando nodo...")
-        return TransitionCallbackReturn.SUCCESS
+        self.destroy_lifecycle_publisher(self.detections_pub)
+        self.destroy_lifecycle_publisher(self.marker_pub)
+        self.destroy_subscription(self.image_sub)
+        return super().on_shutdown(state)
     
-    def on_error(self, state: State) -> TransitionCallbackReturn:
+    def on_error(self, state: LifecycleState) -> TransitionCallbackReturn:
         self.get_logger().error("Nodo en estado de error.")
-        return TransitionCallbackReturn.SUCCESS
+        return super().on_error(state)
 
-    
     def parameter_update_callback(self, params):
         """
         Callback para manejar cambios dinámicos en los parámetros.
@@ -204,3 +204,22 @@ class MoveNetInferenceNode(LifecycleNode):
                 self.marker_pub.publish(vis_msg)
             except CvBridgeError as e:
                 self.get_logger().error(f"Error al convertir imagen para visualización: {e}")
+
+def main(args=None):
+    rclpy.init(args=args)
+
+    # Creamos el nodo de ciclo de vida
+    node = MoveNetInferenceNode()
+
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        # Limpieza
+        node.destroy_node()
+        rclpy.shutdown()
+
+
+if __name__ == '__main__':
+    main()

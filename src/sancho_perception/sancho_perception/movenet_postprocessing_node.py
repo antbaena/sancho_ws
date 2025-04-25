@@ -2,16 +2,16 @@
 # -*- coding: utf-8 -*-
 
 import rclpy
-from rclpy.lifecycle import LifecycleNode
-from rclpy.lifecycle import State
-from rclpy.lifecycle import TransitionCallbackReturn
+from rclpy.lifecycle import LifecycleNode, LifecycleState, TransitionCallbackReturn
+from rclpy.lifecycle import LifecyclePublisher
+
 from sensor_msgs.msg import Image, CameraInfo
 from sancho_msgs.msg import PersonsPoses, PersonPose
 from cv_bridge import CvBridge, CvBridgeError
 import numpy as np
 import message_filters
 from people_msgs.msg import People, Person
-from geometry_msgs.msg import Vector3
+from geometry_msgs.msg import Vector3, PoseArray, Pose, Quaternion
 import random
 random.seed(42)
 # Opcional: semilla para reproducibilidad
@@ -23,94 +23,111 @@ from .movenet_utils import get_depth_value, convert_2d_to_3d
 
 class MoveNetPostprocessingNode(LifecycleNode):
     def __init__(self):
-        super().__init__('movenet_postprocessing')
+        super().__init__('movenet_postprocessing_node')
         self.get_logger().info("Iniciando nodo de postprocesamiento MoveNet...")
 
         # Inicializa todo a None, se configurarán en on_configure
         self.bridge = None
+
+        #Suscriptores
         self.detections_sub = None
         self.depth_sub = None
+        self.camera_info_sub = None
+
+        
         self.sync = None
         self.camera_info = None
 
         self.keypoints3d_pub = None
         self.skeleton_markers_pub = None
         self.people_pub = None
-
+        self.pose_array_pub = None
+        
+        
+        self.bridge = CvBridge()
+        
         self.expected_kpts = 17
+        self.min_valid_keypoints = self.expected_kpts // 3
         self.skel_conns  = [
                     (0, 1), (0, 2), (1, 3), (2, 4),
                     (0, 5), (0, 6), (5, 7), (7, 9),
                     (6, 8), (8, 10), (5, 11), (6, 12),
                     (11, 13), (13, 15), (12, 14), (14, 16)
                 ]
-        self.point_marker_template = Marker(
-            type=Marker.SPHERE_LIST,
-            scale=Vector3(0.05,0.05,0.05),
-            color=ColorRGBA(1,0,0,1),
-            lifetime=Duration(sec=1)
-        )
-
 
         self.declare_parameter('depth_window_size', 3)
         self.declare_parameter('keypoint_score_threshold', 0.4)
 
-    def on_configure(self, state: State) -> TransitionCallbackReturn:
+    def on_configure(self, state: LifecycleState) -> TransitionCallbackReturn:
         self.get_logger().info('Configurando MoveNetPostprocessingNode...')
 
         self.depth_window_size = self.get_parameter('depth_window_size').value
         self.keypoint_score_threshold = self.get_parameter('keypoint_score_threshold').value
 
-        self.bridge = CvBridge()
-
-
-        # Suscriptor a camera_info para la conversión 2D→3D
-        self.create_subscription(CameraInfo, 'astra_camera/camera/color/camera_info', self.camera_info_callback, 10)
-
+   
         # Publicadores para detecciones 3D y esqueletos en MarkerArray
         self.keypoints3d_pub = self.create_lifecycle_publisher(PersonsPoses, '/human_pose/keypoints3d', 10)
         self.skeleton_markers_pub = self.create_lifecycle_publisher(MarkerArray, '/human_pose/skeleton_markers', 10)
         self.people_pub = self.create_lifecycle_publisher(People, '/people', 10)
+        self.pose_array_pub = self.create_lifecycle_publisher(PoseArray, '/human_pose/persons_poses', 10)
 
-        return TransitionCallbackReturn.SUCCESS
+        return super().on_configure(state)
     
-    def on_activate(self, state: State) -> TransitionCallbackReturn:
+    def on_activate(self, state: LifecycleState) -> TransitionCallbackReturn:
         self.get_logger().info('Activando MoveNetPostprocessingNode...')
-
+        
         # Crear los subscribers sincronizados
         self.detections_sub = message_filters.Subscriber(self, PersonsPoses, '/movenet/raw_detections')
         self.depth_sub = message_filters.Subscriber(self, Image, 'astra_camera/camera/depth/image_raw')
-
+        
+        self.camera_info_sub = self.create_subscription(CameraInfo, 'astra_camera/camera/depth/camera_info', self.camera_info_callback, 10)
+        
         self.sync = message_filters.ApproximateTimeSynchronizer(
             [self.detections_sub, self.depth_sub],
             queue_size=10,
             slop=0.1
         )
         self.sync.registerCallback(self.sync_callback)
-
-        return TransitionCallbackReturn.SUCCESS
+        return super().on_activate(state)
     
-    def on_deactivate(self, state: State) -> TransitionCallbackReturn:
+    def on_deactivate(self, state: LifecycleState) -> TransitionCallbackReturn:
         self.get_logger().info('Desactivando MoveNetPostprocessingNode...')
 
-        # limpiar tus suscripciones (destruir los objetos de message_filters)
         if self.sync:
+            self.sync.callbacks.clear()
             self.sync = None
         if self.detections_sub:
+            self.destroy_subscription(self.detections_sub)
             self.detections_sub = None
         if self.depth_sub:
+            self.destroy_subscription(self.depth_sub)
             self.depth_sub = None
+        if self.camera_info_sub:
+            self.destroy_subscription(self.camera_info_sub)
+            self.camera_info_sub = None
 
-        return TransitionCallbackReturn.SUCCESS
+        return super().on_deactivate(state)
 
-    def on_cleanup(self, state: State) -> TransitionCallbackReturn:
+    def on_cleanup(self, state: LifecycleState) -> TransitionCallbackReturn:
         self.get_logger().info('Limpiando MoveNetPostprocessingNode...')
         # Limpiar recursos
         self.bridge = None
         self.camera_info = None
-        return TransitionCallbackReturn.SUCCESS
+        self.sync = None
+        self.detections_sub = None
+        self.depth_sub = None
+        self.destroy_lifecycle_publisher(self.keypoints3d_pub)
+        self.destroy_lifecycle_publisher(self.skeleton_markers_pub)
+        self.destroy_lifecycle_publisher(self.people_pub)
+        self.destroy_lifecycle_publisher(self.pose_array_pub)
 
-    def on_error(self, state: State) -> TransitionCallbackReturn:
+        self.destroy_subscription(self.detections_sub)
+        self.destroy_subscription(self.depth_sub)
+        self.destroy_subscription(self.camera_info_sub)
+
+        return super().on_cleanup(state)
+
+    def on_error(self, state: LifecycleState) -> TransitionCallbackReturn:
         self.get_logger().error('Error en MoveNetPostprocessingNode, limpiando recursos...')
         
         # Aquí podrías limpiar todo lo necesario
@@ -120,12 +137,35 @@ class MoveNetPostprocessingNode(LifecycleNode):
         self.detections_sub = None
         self.depth_sub = None
         
-        return TransitionCallbackReturn.SUCCESS
+        return super().on_error(state)
+    
+    def on_shutdown(self, state: LifecycleState) -> TransitionCallbackReturn:
+        self.get_logger().info('Apagando MoveNetPostprocessingNode...')
+        #Limpiar todo lo necesario
+        self.bridge = None
+        self.camera_info = None
+        self.sync = None
+        self.detections_sub = None
+        self.depth_sub = None
+        self.destroy_lifecycle_publisher(self.keypoints3d_pub)
+        self.destroy_lifecycle_publisher(self.skeleton_markers_pub)
+        self.destroy_lifecycle_publisher(self.people_pub)
+        self.destroy_lifecycle_publisher(self.pose_array_pub)
+
+        self.destroy_subscription(self.detections_sub)
+        self.destroy_subscription(self.depth_sub)
+        self.destroy_subscription(self.camera_info_sub)
+
+        
+        return super().on_shutdown(state)
+    
 
     def camera_info_callback(self, msg):
+
         self.camera_info = msg
 
     def sync_callback(self, detections_msg, depth_msg):
+
         if self.camera_info is None:
             self.get_logger().warn("camera_info aún no disponible, omitiendo procesamiento de este ciclo.")
             return
@@ -139,6 +179,12 @@ class MoveNetPostprocessingNode(LifecycleNode):
         persons_3d_msg = self._procesar_detecciones_3d(detections_msg, depth_image)
         self.keypoints3d_pub.publish(persons_3d_msg)
 
+        # Publicar la posición 3D de las personas como PoseArray
+        pose_array_msg = self._generar_pose_array(detections_msg, persons_3d_msg)
+        if pose_array_msg.poses:
+            self.pose_array_pub.publish(pose_array_msg)
+
+
         people_msg = self._generar_people_msg(detections_msg.header, persons_3d_msg)
         if people_msg.people:
             self.people_pub.publish(people_msg)
@@ -146,7 +192,22 @@ class MoveNetPostprocessingNode(LifecycleNode):
         skeleton_marker_array = self._generar_visualizaciones(detections_msg, persons_3d_msg)
         self.skeleton_markers_pub.publish(skeleton_marker_array)
 
-        self.get_logger().info("Publicadas detecciones 3D y esqueletos.")
+    def _generar_pose_array(self, detections_msg, persons_3d_msg):
+        pose_array_msg = PoseArray()
+        pose_array_msg.header = detections_msg.header
+        for person in persons_3d_msg.persons:
+            # Usamos la primera keypoint 3D como posición
+            x, y, z = person.keypoints3d[0:3]
+            if x == 0.0 and y == 0.0 and z == 0.0:
+                continue  # saltamos si no hay dato válido
+
+            pose = Pose()
+            pose.position = Point(x=float(x), y=float(y), z=float(z))
+            # orientación identidad (sin rotación)
+            pose.orientation = Quaternion(x=0.0, y=0.0, z=0.0, w=1.0)
+
+            pose_array_msg.poses.append(pose)
+        return pose_array_msg
 
 
     def _procesar_detecciones_3d(self, detections_msg, depth_image):
@@ -181,7 +242,7 @@ class MoveNetPostprocessingNode(LifecycleNode):
             new_person.keypoints3d = keypoints_3d
             new_person.avg_depth = float(np.mean(depths)) if depths else 0.0
             persons_3d_msg.persons.append(new_person)
-
+        self.get_logger().info(f"Personas 3D procesadas: {len(persons_3d_msg.persons)}")
         return persons_3d_msg
 
 
@@ -195,15 +256,15 @@ class MoveNetPostprocessingNode(LifecycleNode):
                 continue
 
             points_3d = {
-                idx: (x, y, z)
+                idx: (float(x), float(y), float(z))
                 for idx, (x, y, z) in enumerate(zip(*[iter(keypoints_3d)] * 3))
-                if (x, y, z) != (0.0, 0.0, 0.0)
+                if (float(x), float(y), float(z)) != (0.0, 0.0, 0.0)
             }
+
 
             skeleton_marker_array.markers.append(self._crear_marker_puntos(detections_msg.header, person.id, points_3d))
             skeleton_marker_array.markers.append(self._crear_marker_lineas(detections_msg.header, person.id, points_3d))
             skeleton_marker_array.markers.append(self._crear_marker_texto(detections_msg.header, person.id, points_3d))
-
         return skeleton_marker_array
 
 
@@ -220,8 +281,7 @@ class MoveNetPostprocessingNode(LifecycleNode):
         marker.lifetime.sec = 1
 
         for pt in points_3d.values():
-            marker.points.append(Point(x=pt[0], y=pt[1], z=pt[2]))
-
+            marker.points.append(Point(x=(pt[0]), y=(pt[1]), z=(pt[2])))
         return marker
 
 
@@ -244,7 +304,6 @@ class MoveNetPostprocessingNode(LifecycleNode):
                 p1 = points_3d[idx1]
                 p2 = points_3d[idx2]
                 marker.points.extend([Point(x=p1[0], y=p1[1], z=p1[2]), Point(x=p2[0], y=p2[1], z=p2[2])])
-
         return marker
 
 
@@ -257,12 +316,12 @@ class MoveNetPostprocessingNode(LifecycleNode):
         marker.action = Marker.ADD
         marker.scale.z = 0.2
         marker.color.r = marker.color.g = marker.color.b = marker.color.a = 1.0
-        marker.pose.position.x = points_3d[0][0]
-        marker.pose.position.y = points_3d[0][1]
-        marker.pose.position.z = points_3d[0][2] + 0.3
+        first_point = next(iter(points_3d.values()))
+        marker.pose.position.x = (first_point)[0]
+        marker.pose.position.y = (first_point)[1]
+        marker.pose.position.z = (first_point)[2] + 0.3
         marker.text = f"ID{person_id}"
         marker.lifetime.sec = 1
-
         return marker
 
 
@@ -284,5 +343,22 @@ class MoveNetPostprocessingNode(LifecycleNode):
                 )
                 p.velocity = Point(x=0.0, y=0.0, z=0.0)
                 people_msg.people.append(p)
-
         return people_msg
+def main(args=None):
+    rclpy.init(args=args)
+
+    # Creamos el nodo de ciclo de vida
+    node = MoveNetPostprocessingNode()
+
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        # Limpieza
+        node.destroy_node()
+        rclpy.shutdown()
+
+
+if __name__ == '__main__':
+    main()

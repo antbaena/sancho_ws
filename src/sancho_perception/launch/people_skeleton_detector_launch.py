@@ -24,8 +24,8 @@ def generate_launch_description():
         executable='movenet_inference_node',
         name='movenet_inference_node',
         output='screen',
-        parameters=[movenet_params_file],
-        prefix=prefix_cmd,
+        # parameters=[movenet_params_file],
+        prefix='xterm -hold -e',
         emulate_tty=True,
     )
     
@@ -35,14 +35,14 @@ def generate_launch_description():
         executable='movenet_postprocessing_node',
         name='movenet_postprocessing_node',
         output='screen',
-        parameters=[postprocessing_params_file],
-        prefix=prefix_cmd,
+        # parameters=[postprocessing_params_file],
+        prefix='xterm -hold -e',
         emulate_tty=True,
     )
 
     # Lifecycle Manager
     lifecycle_manager = Node(
-        package='lifecycle_manager',
+        package='nav2_lifecycle_manager',
         executable='lifecycle_manager',
         name='lifecycle_manager_perception',
         output='screen',
@@ -51,7 +51,9 @@ def generate_launch_description():
             'node_names': [
                 'movenet_inference_node',
                 'movenet_postprocessing_node'
-            ]
+            ],
+            'bond_timeout': 0.0  
+
         }]
     )
 

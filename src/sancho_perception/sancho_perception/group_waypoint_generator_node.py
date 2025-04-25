@@ -3,7 +3,7 @@
 
 import rclpy
 from rclpy.lifecycle import LifecycleNode
-from rclpy.lifecycle import State
+from rclpy.lifecycle import LifecycleState
 from rclpy.lifecycle import TransitionCallbackReturn
 from rclpy.qos import QoSProfile
 
@@ -35,7 +35,7 @@ class GroupWaypointGeneratorNode(LifecycleNode):
         self.robot_pose = None
         self.last_goal = None
 
-    def on_configure(self, state: State) -> TransitionCallbackReturn:
+    def on_configure(self, state: LifecycleState) -> TransitionCallbackReturn:
         self.get_logger().info("Configurando nodo...")
 
         self.group_topic = self.get_parameter('group_topic').value
@@ -44,20 +44,21 @@ class GroupWaypointGeneratorNode(LifecycleNode):
         self.safety_margin = self.get_parameter('safety_margin').value
         self.goal_update_threshold = self.get_parameter('goal_update_threshold').value
 
-        return TransitionCallbackReturn.SUCCESS
+        self.goal_pub = self.create_lifecycle_publisher(PoseStamped, self.waypoint_goal_topic, 10)
 
-    def on_activate(self, state: State) -> TransitionCallbackReturn:
+        return super().on_configure(state)
+
+    def on_activate(self, state: LifecycleState) -> TransitionCallbackReturn:
         self.get_logger().info("Activando nodo...")
 
         qos = QoSProfile(depth=10)
 
         self.group_sub = self.create_subscription(GroupInfo, self.group_topic, self.group_callback, qos)
         self.robot_pose_sub = self.create_subscription(PoseStamped, self.robot_pose_topic, self.robot_pose_callback, qos)
-        self.goal_pub = self.create_publisher(PoseStamped, self.waypoint_goal_topic, qos)
 
-        return TransitionCallbackReturn.SUCCESS
+        return super().on_activate(state)
 
-    def on_deactivate(self, state: State) -> TransitionCallbackReturn:
+    def on_deactivate(self, state: LifecycleState) -> TransitionCallbackReturn:
         self.get_logger().info("Desactivando nodo...")
 
         self.destroy_subscription(self.group_sub)
@@ -66,29 +67,42 @@ class GroupWaypointGeneratorNode(LifecycleNode):
         self.destroy_subscription(self.robot_pose_sub)
         self.robot_pose_sub = None
 
-        self.destroy_publisher(self.goal_pub)
-        self.goal_pub = None
+        return super().on_deactivate(state)
 
-        return TransitionCallbackReturn.SUCCESS
-
-    def on_cleanup(self, state: State) -> TransitionCallbackReturn:
+    def on_cleanup(self, state: LifecycleState) -> TransitionCallbackReturn:
         self.get_logger().info("Limpiando recursos del nodo...")
 
         self.robot_pose = None
         self.last_goal = None
+        self.destroy_subscription(self.group_sub)
+        self.group_sub = None
 
-        return TransitionCallbackReturn.SUCCESS
+        self.destroy_subscription(self.robot_pose_sub)
+        self.robot_pose_sub = None
 
-    def on_shutdown(self, state: State) -> TransitionCallbackReturn:
+        self.destroy_lifecycle_publisher(self.goal_pub)
+        self.goal_pub = None
+        return super().on_cleanup(state)
+
+    def on_shutdown(self, state: LifecycleState) -> TransitionCallbackReturn:
         self.get_logger().info("Apagando nodo...")
 
-        return TransitionCallbackReturn.SUCCESS
+        self.destroy_subscription(self.group_sub)
+        self.group_sub = None
 
-    def on_error(self, state: State) -> TransitionCallbackReturn:
+        self.destroy_subscription(self.robot_pose_sub)
+        self.robot_pose_sub = None
+
+        self.destroy_lifecycle_publisher(self.goal_pub)
+        self.goal_pub = None
+        
+        return super().on_shutdown(state)
+
+    def on_error(self, state: LifecycleState) -> TransitionCallbackReturn:
         self.get_logger().error("¡Error en el nodo! Reiniciando estado interno...")
         self.robot_pose = None
         self.last_goal = None
-        return TransitionCallbackReturn.SUCCESS
+        return super().on_error(state)
 
     def robot_pose_callback(self, msg: PoseStamped):
         self.robot_pose = msg
@@ -150,3 +164,21 @@ class GroupWaypointGeneratorNode(LifecycleNode):
         return Quaternion(x=q_arr[0], y=q_arr[1], z=q_arr[2], w=q_arr[3])
 
 
+def main(args=None):
+    rclpy.init(args=args)
+
+    # Creamos el nodo de ciclo de vida
+    node = GroupWaypointGeneratorNode()
+
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        # Limpieza
+        node.destroy_node()
+        rclpy.shutdown()
+
+
+if __name__ == '__main__':
+    main()

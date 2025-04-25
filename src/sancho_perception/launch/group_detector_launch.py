@@ -13,35 +13,38 @@ def generate_launch_description():
 
     # Lifecycle Nodes
     group_detection_node = LifecycleNode(
+        namespace='',  
         package='sancho_perception',
-        executable='group_detection_lifecycle_node',
-        name='group_detection_lifecycle_node',
+        executable='group_detection_node',
+        name='group_detection_node',
         output='screen',
-        prefix=prefix_cmd,
+        prefix='xterm -hold -e',
         emulate_tty=True,
     )
 
     group_waypoint_generator_node = LifecycleNode(
+        namespace='',  
         package='sancho_perception',
-        executable='group_waypoint_generator_lifecycle_node',
-        name='group_waypoint_generator_lifecycle_node',
+        executable='group_waypoint_generator_node',
+        name='group_waypoint_generator_node',
         output='screen',
-        prefix=prefix_cmd,
+        prefix='xterm -hold -e',
         emulate_tty=True,
     )
 
     # Lifecycle Manager
     lifecycle_manager = Node(
-        package='lifecycle_manager',
+        package='nav2_lifecycle_manager',
         executable='lifecycle_manager',
         name='lifecycle_manager_sancho',
         output='screen',
         parameters=[{
             'autostart': True,
             'node_names': [
-                'group_detection_lifecycle_node',
-                'group_waypoint_generator_lifecycle_node'
-            ]
+                'group_detection_node',
+                'group_waypoint_generator_node'
+            ],
+            'bond_timeout': 0.0  
         }]
     )
 
