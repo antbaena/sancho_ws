@@ -72,7 +72,7 @@ def generate_launch_description():
                 emulate_tty=True,
                 parameters=[nav2_params_path],
                 remappings=[
-                    ("cmd_vel", "cmd_vel_raw")
+                    ("cmd_vel", "cmd_vel")
                 ],  # Importante redirigir salida al velocity smoother
             ),
             # Nodo de comportamiento basado en árboles de decisión (BT Navigator)

@@ -23,7 +23,6 @@ class GroupWaypointGeneratorNode(LifecycleNode):
         # Declarar parámetros
         self.declare_parameter('group_topic', '/detected_group')
         self.declare_parameter('waypoint_goal_topic', '/group_waypoint')
-        self.declare_parameter('robot_pose_topic', '/amcl_pose')
         self.declare_parameter('safety_margin', 0.5)
         self.declare_parameter('goal_update_threshold', 0.1)
 
@@ -40,7 +39,6 @@ class GroupWaypointGeneratorNode(LifecycleNode):
 
         self.group_topic = self.get_parameter('group_topic').value
         self.waypoint_goal_topic = self.get_parameter('waypoint_goal_topic').value
-        self.robot_pose_topic = self.get_parameter('robot_pose_topic').value
         self.safety_margin = self.get_parameter('safety_margin').value
         self.goal_update_threshold = self.get_parameter('goal_update_threshold').value
 

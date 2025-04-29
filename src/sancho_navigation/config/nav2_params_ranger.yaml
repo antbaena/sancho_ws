@@ -52,8 +52,9 @@ bt_navigator:
 
 
     plugin_lib_names:
-      - social_bt_nodes
       - nav2_compute_path_to_pose_action_bt_node
+      - nav2_controller_cancel_bt_node
+      - nav2_path_longer_on_approach_bt_node
       - nav2_compute_path_through_poses_action_bt_node
       - nav2_follow_path_action_bt_node
       - nav2_back_up_action_bt_node
@@ -98,12 +99,13 @@ controller_server:
     controller_frequency: 20.0
     min_x_velocity_threshold: 0.05
     min_y_velocity_threshold: 0.05
-    min_theta_velocity_threshold: 0.05
+    min_theta_velocity_threshold: 0.1
     failure_tolerance: 0.3
 
     progress_checker_plugin: "progress_checker"
     goal_checker_plugins: ["general_goal_checker"]  # o "precise_goal_checker"
     smoother_plugins: ["velocity_smoother"]
+    controller_plugins: ["FollowPath"]
 
     # Progress checker parameters
     progress_checker:
@@ -118,8 +120,20 @@ controller_server:
       xy_goal_tolerance: 0.2
       yaw_goal_tolerance: 0.5   # Mayor tolerancia para evitar microajustes
 
+
     FollowPath:
-      plugin: "nav2_mppi_controller::MPPIController"
+      plugin: "nav2_rotation_shim_controller::RotationShimController"
+      primary_controller: "nav2_mppi_controller::MPPIController"
+
+      angular_dist_threshold: 0.685
+      forward_sampling_distance: 0.5
+      angular_disengage_threshold: 0.1925
+      rotate_to_heading_angular_vel: 1.0
+      max_angular_accel: 3.0
+      simulate_ahead_time: 1.0
+      rotate_to_goal_heading: false
+
+      # MPPI Controller parameters
       time_steps: 56
       model_dt: 0.05
       batch_size: 2000
@@ -143,10 +157,11 @@ controller_server:
       iteration_count: 1 
       prune_distance: 1.7
       transform_tolerance: 0.1
-      temperature: 0.3
+      temperature: 0.5
       gamma: 0.015
       motion_model: "Ackermann"
-      visualize: false
+      visualize: true
+      retry_attempt_limit: 3
 
       TrajectoryVisualizer:
         trajectory_step: 5
@@ -165,7 +180,7 @@ controller_server:
          - "PathFollowCritic"
          - "PathAngleCritic"
          - "PreferForwardCritic"
-        # - "VelocityDeadbandCritic"  # Opcional, para suavizar cambios muy pequeños
+         - "VelocityDeadbandCritic"  # Opcional, para suavizar cambios muy pequeños
 
       ConstraintCritic:
         enabled: true
@@ -231,7 +246,7 @@ controller_server:
         enabled: true
         cost_power: 1
         cost_weight: 30.0
-        deadband_velocities: [0.02, 0.02, 0.02]
+        deadband_velocities: [0.00, 0.00, 0.05]
 
       TwirlingCritic:
         enabled: true
@@ -260,89 +275,47 @@ controller_server_rclcpp_node:
 # =====================
 # PLANNER SERVER (global)
 # =====================
-# ===============================================================
-# Configuración SmacPlannerHybrid
-# Explicación de cada parámetro
-# ===============================================================
 
-# plugin: Tipo de planificador usado, aquí el Smac Híbrido (ideal para robots Ackermann/diferenciales).
-# tolerance: Permite llegar a cierta distancia del objetivo (metros).
-# downsample_costmap: Si se reduce la resolución del costmap (false = máxima precisión).
-# downsampling_factor: Factor de reducción del costmap si downsample_costmap es true.
-# allow_unknown: Permite planear a través de zonas desconocidas en el mapa (false = no permitido).
-# max_iterations: Máximo número de expansiones de nodos antes de abortar.
-# max_on_approach_iterations: Número máximo de expansiones cerca del objetivo.
-# terminal_checking_interval: Cada cuántas expansiones comprobar si estamos en la meta.
-# max_planning_time: Tiempo máximo permitido para generar un plan (segundos).
-# motion_model_for_search: Modelo de movimiento (DUBIN = sin marcha atrás, REEDS_SHEPP = con marcha atrás).
-# cost_travel_multiplier: Penalización por viajar sobre zonas de coste (zonas cercanas a obstáculos).
-# cost_penalty: Penaliza pasar por celdas cercanas a obstáculos (costmap).
-# angle_quantization_bins: Número de ángulos discretos (menos = más rápido, menos preciso).
-# analytic_expansion_ratio: Ratio de distancia para intentar atajos analíticos hacia el objetivo.
-# analytic_expansion_max_length: Longitud máxima de un atajo analítico (metros).
-# analytic_expansion_max_cost: Coste máximo aceptable para usar un atajo analítico.
-# analytic_expansion_max_cost_override: Permitir atajos aunque superen el coste máximo (false = no permitir).
-# minimum_turning_radius: Radio mínimo de giro del robot (metros).
-# reverse_penalty: Penaliza la marcha atrás para favorecer la marcha adelante.
-# change_penalty: Penaliza cambiar de dirección (de avanzar a retroceder y viceversa).
-# non_straight_penalty: Penaliza trayectorias curvas para favorecer movimientos rectos.
-# retrospective_penalty: Penalización mínima para pasos hacia atrás en el grafo.
-# rotation_penalty: Penaliza las rotaciones in situ (giros en el sitio).
-# lookup_table_size: Tamaño de la tabla de búsqueda para curvas (metros).
-# cache_obstacle_heuristic: Habilita cacheo de heurística de obstáculos para acelerar el planning.
-# allow_reverse_expansion: Permite o no la expansión de nodos marcha atrás (false = no permitir).
-# smooth_path: Suaviza el camino final planeado para hacerlo más continuo.
-# debug_visualizations: Publica información de debug en RViz (false para menos consumo de CPU).
-
-# Smoother:
-# max_iterations: Número máximo de iteraciones del suavizador.
-# w_smooth: Peso del suavizado de la trayectoria (más alto = caminos más suaves).
-# w_data: Peso para mantener el camino cerca del plan original.
-# tolerance: Tolerancia para la convergencia del suavizado.
-# do_refinement: Refinar aún más el camino después del suavizado (false para mayor velocidad).
-# ===============================================================
 planner_server:
   ros__parameters:
     use_sim_time: False
-    expected_planner_frequency: 20.0
-    planner_plugins: ["SmacHybridPlanner"]
-    SmacHybridPlanner:
-      plugin: "nav2_smac_planner/SmacPlannerHybrid"
-      tolerance: 0.5
-      downsample_costmap: false
-      downsampling_factor: 1
-      allow_unknown: false
-      max_iterations: 1000000
-      max_on_approach_iterations: 1000
-      terminal_checking_interval: 5000
-      max_planning_time: 5.0
-      motion_model_for_search: "DUBIN"  # o "REEDS_SHEPP" si quieres marcha atrás
-      cost_travel_multiplier: 2.0
-      cost_penalty: 2.0
-      angle_quantization_bins: 36
-      analytic_expansion_ratio: 2.5
-      analytic_expansion_max_length: 2.0
-      analytic_expansion_max_cost: 200
-      analytic_expansion_max_cost_override: false
-      minimum_turning_radius: 0.40
-      reverse_penalty: 2.1
-      change_penalty: 1.0
-      non_straight_penalty: 1.5
-      retrospective_penalty: 0.025
-      rotation_penalty: 7.0
-      lookup_table_size: 20.0
-      cache_obstacle_heuristic: true
-      allow_reverse_expansion: false
-      smooth_path: true
-      debug_visualizations: false
-
+    planner_plugins: ["GridBased"]
+    GridBased:
+      plugin: "nav2_smac_planner/SmacPlannerLattice"
+      lattice_filepath: /home/mapir/sancho_ws/src/sancho_navigation/config/ranger_primitives.json
+      tolerance: 0.5                      # tolerance for planning if unable to reach exact pose, in meters
+      downsample_costmap: false           # whether or not to downsample the map
+      downsampling_factor: 1              # multiplier for the resolution of the costmap layer (e.g. 2 on a 5cm costmap would be 10cm)
+      allow_unknown: false                # allow traveling in unknown space
+      max_iterations: 1000000             # maximum total iterations to search for before failing (in case unreachable), set to -1 to disable
+      max_on_approach_iterations: 1000    # maximum number of iterations to attempt to reach goal once in tolerance
+      terminal_checking_interval: 5000     # number of iterations between checking if the goal has been cancelled or planner timed out
+      max_planning_time: 3.5              # max time in s for planner to plan, smooth, and upsample. Will scale maximum smoothing and upsampling times based on remaining time after planning.
+      motion_model_for_search: "REEDS_SHEPP"    # For Hybrid Dubin, Reeds-Shepp
+      cost_travel_multiplier: 2.0         # For 2D: Cost multiplier to apply to search to steer away from high cost areas. Larger values will place in the center of aisles more exactly (if non-`FREE` cost potential field exists) but take slightly longer to compute. To optimize for speed, a value of 1.0 is reasonable. A reasonable tradeoff value is 2.0. A value of 0.0 effective disables steering away from obstacles and acts like a naive binary search A*.
+      angle_quantization_bins: 64         # For Hybrid nodes: Number of angle bins for search, must be 1 for 2D node (no angle search)
+      analytic_expansion_ratio: 3.5       # For Hybrid/Lattice nodes: The ratio to attempt analytic expansions during search for final approach.
+      analytic_expansion_max_length: 3.0    # For Hybrid/Lattice nodes: The maximum length of the analytic expansion to be considered valid to prevent unsafe shortcutting (in meters). This should be scaled with minimum turning radius and be no less than 4-5x the minimum radius
+      analytic_expansion_max_cost: 200   # For Hybrid/Lattice nodes: The maximum single cost for any part of an analytic expansion to contain and be valid (except when necessary on approach to goal)
+      analytic_expansion_max_cost_override: false # For Hybrid/Lattice nodes: Whether or not to override the maximum cost setting if within critical distance to goal (ie probably required). If expansion is within 2*pi*min_r of the goal, then it will override the max cost if ``false``.
+      minimum_turning_radius: 0.4764        # For Hybrid/Lattice nodes: minimum turning radius in m of path / vehicle
+      reverse_penalty: 2.1                # For Reeds-Shepp model: penalty to apply if motion is reversing, must be => 1
+      change_penalty: 0.0                 # For Hybrid nodes: penalty to apply if motion is changing directions, must be >= 0
+      non_straight_penalty: 1.20          # For Hybrid nodes: penalty to apply if motion is non-straight, must be => 1
+      cost_penalty: 2.0                   # For Hybrid nodes: penalty to apply to higher cost areas when adding into the obstacle map dynamic programming distance expansion heuristic. This drives the robot more towards the center of passages. A value between 1.3 - 3.5 is reasonable.
+      retrospective_penalty: 0.025        # For Hybrid/Lattice nodes: penalty to prefer later maneuvers before earlier along the path. Saves search time since earlier nodes are not expanded until it is necessary. Must be >= 0.0 and <= 1.0
+      rotation_penalty: 5.0               # For Lattice node: Penalty to apply only to pure rotate in place commands when using minimum control sets containing rotate in place primitives. This should always be set sufficiently high to weight against this action unless strictly necessary for obstacle avoidance or there may be frequent discontinuities in the plan where it requests the robot to rotate in place to short-cut an otherwise smooth path for marginal path distance savings.
+      lookup_table_size: 20.0               # For Hybrid nodes: Size of the dubin/reeds-sheep distance window to cache, in meters.
+      cache_obstacle_heuristic: True      # For Hybrid nodes: Cache the obstacle map dynamic programming distance expansion heuristic between subsequent replannings of the same goal location. Dramatically speeds up replanning performance (40x) if costmap is largely static.
+      allow_reverse_expansion: False      # For Lattice nodes: Whether to expand state lattice graph in forward primitives or reverse as well, will double the branching factor at each step.
+      smooth_path: True                   # For Lattice/Hybrid nodes: Whether or not to smooth the path, always true for 2D nodes.
+      debug_visualizations: True                # For Hybrid/Lattice nodes: Whether to publish expansions on the /expansions topic as an array of poses (the orientation has no meaning) and the path's footprints on the /planned_footprints topic. WARNING: heavy to compute and to display, for debug only as it degrades the performance.
       smoother:
-        smoother_plugin: "nav2_smac_planner/ConjugateGradientSmoother"
-        tolerance: 1e-10
-        max_iterations: 100
+        max_iterations: 1000
         w_smooth: 0.3
-        w_curvature: 0.1
-        w_distance: 0.2
+        w_data: 0.2
+        tolerance: 1.0e-10
+        do_refinement: true               # Whether to recursively run the smoother 3 times on the results from prior runs to refine the results further
 
 planner_server_rclcpp_node:
   ros__parameters:
