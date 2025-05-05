@@ -14,7 +14,7 @@ def generate_launch_description():
     usb_cam_param_file = os.path.join(
         get_package_share_directory('sancho_bringup'),
         'config',
-        'usb_cam_params.yaml'   # <-- Asegúrate de crear este archivo
+        'params_mid.yaml'   # <-- Asegúrate de crear este archivo
     )
 
     # Lanzar LiDAR Hokuyo
@@ -95,7 +95,17 @@ def generate_launch_description():
                 'pointCloudTopic':  '/laser_cloud',
             }]
         )
-
+    image_proc_node = Node(
+            package='image_proc',
+            executable='rectify_node',
+            name='usb_cam_rectify_node',
+            output='screen',
+            remappings=[
+                ('image', '/sancho_camera/image_raw'),
+                ('camera_info', '/sancho_camera/camera_info'),
+                ('image_rect', '/sancho_camera/image_rect')
+            ]
+        )
     return LaunchDescription([
         # Comandos para configurar la cámara
         ExecuteProcess(cmd=['v4l2-ctl', '-d', '/dev/video0', '-c', 'white_balance_automatic=0'], shell=False),
@@ -139,5 +149,7 @@ def generate_launch_description():
          scan_merger_node,
 
         # NUEVO: Nodo de la cámara USB
-        # usb_cam_node
+         usb_cam_node,
+        # NUEVO: Nodo de la cámara USB (procesamiento de imagen)
+         image_proc_node
     ])

@@ -1,17 +1,17 @@
 image_width: 1920
 image_height: 1080
-camera_name: calibrated_camera
+camera_name: narrow_stereo
 camera_matrix:
   rows: 3
   cols: 3
-  data: [4518.654489, -0.753835, 328.032458,
-         0.000000, 1468.1017857 , 220.596994,
-         0.000000, 0.000000, 1.000000] #TODO
+  data: [1071.31955,   -8.1962 ,  939.37064,
+            0.     , 1075.42921,  484.21201,
+            0.     ,    0.     ,    1.     ]
 distortion_model: equidistant
 distortion_coefficients:
   rows: 1
   cols: 4
-  data: [-0.0, 0.0, -0.008698, -0.00]
+  data: [-0.083623, 0.102169, -0.075069, 0.008893]
 rectification_matrix:
   rows: 3
   cols: 3
@@ -21,6 +21,6 @@ rectification_matrix:
 projection_matrix:
   rows: 3
   cols: 4
-  data: [458.654489, -0.753835, 328.032458, 0,
-         0.000000, 468.017857 , 220.596994, 0,
-         0.000000, 0.000000, 1.000000, 0] #TODO
+  data: [1071.31955,   -8.1962 ,  939.37064,    0.     ,
+            0.     , 1075.42921,  484.21201,    0.     ,
+            0.     ,    0.     ,    1.     ,    0.     ]
