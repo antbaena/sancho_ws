@@ -14,7 +14,7 @@ class FaceDetectorNode(Node):
         super().__init__('face_detector')
 
         # Parámetros
-        self.declare_parameter('image_topic', '/astra_camera/camera/color/image_raw')
+        self.declare_parameter('image_topic', '/sancho_camera/image_rect')
         self.declare_parameter('detections_topic', '/face_detections')
         self.declare_parameter('use_cnn', False)
         self.declare_parameter('visualization', True)
