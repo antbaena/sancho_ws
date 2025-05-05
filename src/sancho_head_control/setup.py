@@ -24,6 +24,7 @@ setup(
     entry_points={
         'console_scripts': [
             'head_controller_node = sancho_head_control.head_controller_node:main',
+            'head_tracker_node = sancho_head_control.head_tracker_node:main',
             
         ],
     },
