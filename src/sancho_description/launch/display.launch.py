@@ -18,14 +18,16 @@ def generate_launch_description():
             executable="robot_state_publisher",
             name="robot_state_publisher",
             output="screen",
-            parameters=[{"robot_description": open(urdf_file).read()}]
+            parameters=[{"robot_description": open(urdf_file).read()}],
+            remappings=[("/joint_states", "/wxxms/joint_states")]
+
         ),
-        Node(
-            package='joint_state_publisher',
-            executable='joint_state_publisher',
-            name='joint_state_publisher',
-            output='screen'
-        ),
+        # Node(
+        #     package='joint_state_publisher',
+        #     executable='joint_state_publisher',
+        #     name='joint_state_publisher',
+        #     output='screen'
+        # ),
         # Node(
         #     package="rviz2",
         #     executable="rviz2",

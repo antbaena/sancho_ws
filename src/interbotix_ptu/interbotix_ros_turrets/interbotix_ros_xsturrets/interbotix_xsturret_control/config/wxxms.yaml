@@ -7,7 +7,7 @@ sleep_positions: [0, 0]
 joint_state_publisher:
   update_rate: 100
   publish_states: true
-  topic_name: joint_states
+  topic_name: /wxxms/joint_states
 
 groups:
   turret: [pan, tilt]
