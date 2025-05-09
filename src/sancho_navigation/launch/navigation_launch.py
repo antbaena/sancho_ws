@@ -42,6 +42,17 @@ def generate_launch_description():
                 emulate_tty=True,
                 parameters=[nav2_params_path],
             ),
+            Node(
+                package="nav2_map_server",
+                executable="map_server",
+                name="map_server_localization",
+                prefix="xterm -hold -e",
+                emulate_tty=True,
+                parameters=[nav2_params_path],
+                remappings=[
+                ("/map", "/localization_map")
+                ],
+                ),
             # Nodo de localización (AMCL)
             Node(
                 package="nav2_amcl",
@@ -109,6 +120,7 @@ def generate_launch_description():
                         "autostart": True,
                         "node_names": [
                             "map_server",
+                            "map_server_localization",
                             "amcl",
                             "planner_server",
                             "controller_server",

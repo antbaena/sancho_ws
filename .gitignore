@@ -164,3 +164,4 @@ certs/*.pem
 /nginx/certs
 /rosbag2_2025_03_21-13_19_09
 /rosbag*
+/calibrationdata
