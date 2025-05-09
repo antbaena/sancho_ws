@@ -34,6 +34,7 @@ class RoamingNode(Node):
         self.declare_parameter('check_interval', 5.0)
         self.declare_parameter('max_path_length', 10.0)
         self.declare_parameter('compute_path_timeout', 5.0)
+        self.declare_parameter('min_path_length', 2.0)
 
         # Obtener parámetros
         self.frame_id = self.get_parameter('frame_id').value
@@ -46,7 +47,7 @@ class RoamingNode(Node):
         self.timer_period = self.get_parameter('check_interval').value
         self.max_path_length = self.get_parameter('max_path_length').value
         self.compute_path_timeout = self.get_parameter('compute_path_timeout').value
-
+        self.min_path_length = self.get_parameter('min_path_length').value
         # Estado
         self.recent_goals = []
         self.goal_active = False
@@ -188,7 +189,7 @@ class RoamingNode(Node):
                 dy = path.poses[i+1].pose.position.y - path.poses[i].pose.position.y
                 length += math.hypot(dx, dy)
 
-            if length <= 0.0 or length > self.max_path_length:
+            if length <= self.min_path_length or length > self.max_path_length:
                 self.get_logger().info(f'Pose descartada: longitud inválida ({length:.2f}m)')
                 continue
 
