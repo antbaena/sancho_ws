@@ -2,6 +2,6 @@ groups:
   turret:
     operating_mode: position
     profile_type: time
-    profile_velocity: 1000
-    profile_acceleration: 500               
+    profile_velocity: 100
+    profile_acceleration: 0               
     torque_enable: true
