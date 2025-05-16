@@ -1,30 +1,32 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import rclpy
-from rclpy.lifecycle import LifecycleNode
-from rclpy.lifecycle import LifecycleState
-from rclpy.lifecycle import TransitionCallbackReturn
-from rclpy.qos import QoSProfile
-
-from geometry_msgs.msg import PoseStamped, Point, Quaternion
-from sancho_msgs.msg import GroupInfo
+import math
 
 import numpy as np
-import math
+import rclpy
 import tf_transformations  # Asegúrate de tener instalado: pip install tf-transformations
+from geometry_msgs.msg import Point, PoseStamped, Quaternion
+from rclpy.lifecycle import (LifecycleNode, LifecycleState,
+                             TransitionCallbackReturn)
+from rclpy.qos import QoSProfile
+
+from sancho_msgs.msg import GroupInfo
 
 
 class GroupWaypointGeneratorNode(LifecycleNode):
     def __init__(self):
-        super().__init__('group_waypoint_generator_lifecycle')
-        self.get_logger().info("Inicializando nodo de generación de waypoints con Lifecycle...")
+        super().__init__("group_waypoint_generator_lifecycle")
+        self.get_logger().info(
+            "Inicializando nodo de generación de waypoints con Lifecycle..."
+        )
 
         # Declarar parámetros
-        self.declare_parameter('group_topic', '/detected_group')
-        self.declare_parameter('waypoint_goal_topic', '/group_waypoint')
-        self.declare_parameter('safety_margin', 0.5)
-        self.declare_parameter('goal_update_threshold', 0.1)
+        self.declare_parameter("group_topic", "/detected_group")
+        self.declare_parameter("waypoint_goal_topic", "/group_waypoint")
+        self.declare_parameter("safety_margin", 0.5)
+        self.declare_parameter("goal_update_threshold", 0.1)
+        self.declare_parameter("robot_pose_topic", "/robot_pose")
 
         # Variables internas
         self.group_sub = None
@@ -37,12 +39,15 @@ class GroupWaypointGeneratorNode(LifecycleNode):
     def on_configure(self, state: LifecycleState) -> TransitionCallbackReturn:
         self.get_logger().info("Configurando nodo...")
 
-        self.group_topic = self.get_parameter('group_topic').value
-        self.waypoint_goal_topic = self.get_parameter('waypoint_goal_topic').value
-        self.safety_margin = self.get_parameter('safety_margin').value
-        self.goal_update_threshold = self.get_parameter('goal_update_threshold').value
+        self.group_topic = self.get_parameter("group_topic").value
+        self.waypoint_goal_topic = self.get_parameter("waypoint_goal_topic").value
+        self.safety_margin = self.get_parameter("safety_margin").value
+        self.goal_update_threshold = self.get_parameter("goal_update_threshold").value
+        self.robot_pose_topic = self.get_parameter("robot_pose_topic").value
 
-        self.goal_pub = self.create_lifecycle_publisher(PoseStamped, self.waypoint_goal_topic, 10)
+        self.goal_pub = self.create_lifecycle_publisher(
+            PoseStamped, self.waypoint_goal_topic, 10
+        )
 
         return super().on_configure(state)
 
@@ -51,9 +56,16 @@ class GroupWaypointGeneratorNode(LifecycleNode):
 
         qos = QoSProfile(depth=10)
 
-        self.group_sub = self.create_subscription(GroupInfo, self.group_topic, self.group_callback, qos)
-        self.robot_pose_sub = self.create_subscription(PoseStamped, self.robot_pose_topic, self.robot_pose_callback, qos)
+        self.group_sub = self.create_subscription(
+            GroupInfo, self.group_topic, self.group_callback, qos
+        )
+        self.robot_pose_sub = self.create_subscription(
+            PoseStamped, self.robot_pose_topic, self.robot_pose_callback, qos
+        )
 
+        self.get_logger().info(
+            f"Suscrito a {self.group_topic} y {self.robot_pose_topic}"
+        )
         return super().on_activate(state)
 
     def on_deactivate(self, state: LifecycleState) -> TransitionCallbackReturn:
@@ -93,7 +105,7 @@ class GroupWaypointGeneratorNode(LifecycleNode):
 
         self.destroy_lifecycle_publisher(self.goal_pub)
         self.goal_pub = None
-        
+
         return super().on_shutdown(state)
 
     def on_error(self, state: LifecycleState) -> TransitionCallbackReturn:
@@ -106,20 +118,22 @@ class GroupWaypointGeneratorNode(LifecycleNode):
         self.robot_pose = msg
 
     def group_callback(self, msg: GroupInfo):
-        try:
-            centroid = np.array([msg.pose.position.x, msg.pose.position.y])
-            radius = msg.radius
-            self.get_logger().info(f"Recibido grupo: centroide {centroid.tolist()}, radio {radius:.2f}")
-        except Exception as e:
-            self.get_logger().error(f"Error al procesar GroupInfo: {e}")
-            return
-        
         if self.robot_pose is None:
             self.get_logger().warn("No se dispone de la pose actual del robot.")
             return
-
         try:
-            robot_pos = np.array([self.robot_pose.pose.position.x, self.robot_pose.pose.position.y])
+            centroid = np.array([msg.pose.position.x, msg.pose.position.y])
+            radius = msg.radius
+            self.get_logger().info(
+                f"Recibido grupo: centroide {centroid.tolist()}, radio {radius:.2f}"
+            )
+        except Exception as e:
+            self.get_logger().error(f"Error al procesar GroupInfo: {e}")
+            return
+        try:
+            robot_pos = np.array(
+                [self.robot_pose.pose.position.x, self.robot_pose.pose.position.y]
+            )
         except Exception as e:
             self.get_logger().error(f"Error al extraer la pose del robot: {e}")
             return
@@ -128,10 +142,12 @@ class GroupWaypointGeneratorNode(LifecycleNode):
         vec = robot_pos - centroid
         norm = np.linalg.norm(vec)
         if norm < 1e-3:
-            self.get_logger().warn("La pose del robot coincide con el centro del grupo. Usando dirección por defecto.")
+            self.get_logger().warn(
+                "La pose del robot coincide con el centro del grupo. Usando dirección por defecto."
+            )
             vec = np.array([1.0, 0.0])
             norm = 1.0
-        
+
         direction = vec / norm
         goal_point = centroid + (radius + self.safety_margin) * direction
 
@@ -151,11 +167,15 @@ class GroupWaypointGeneratorNode(LifecycleNode):
         goal_msg = PoseStamped()
         goal_msg.header.stamp = self.get_clock().now().to_msg()
         goal_msg.header.frame_id = msg.header.frame_id
-        goal_msg.pose.position = Point(x=float(goal_point[0]), y=float(goal_point[1]), z=0.0)
+        goal_msg.pose.position = Point(
+            x=float(goal_point[0]), y=float(goal_point[1]), z=0.0
+        )
         goal_msg.pose.orientation = q
 
         self.goal_pub.publish(goal_msg)
-        self.get_logger().info(f"Publicado objetivo en {goal_point.tolist()} con yaw {yaw:.2f} rad.")
+        self.get_logger().info(
+            f"Publicado objetivo en {goal_point.tolist()} con yaw {yaw:.2f} rad."
+        )
 
     def yaw_to_quaternion(self, yaw: float) -> Quaternion:
         q_arr = tf_transformations.quaternion_from_euler(0, 0, yaw)
@@ -178,5 +198,5 @@ def main(args=None):
         rclpy.shutdown()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
