@@ -20,6 +20,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/GroupInfo.msg"
   "msg/Face.msg"
   "msg/FaceArray.msg"
+  "msg/AudioData.msg"
   DEPENDENCIES sensor_msgs std_msgs
   )
 
