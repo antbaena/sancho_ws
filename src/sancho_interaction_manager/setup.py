@@ -20,6 +20,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+            'interaction_manager_node = sancho_interaction_manager.interaction_manager_node:main',
+            
         ],
     },
 )
