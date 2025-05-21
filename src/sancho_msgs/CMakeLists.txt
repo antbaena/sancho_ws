@@ -22,6 +22,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/FaceArray.msg"
   "msg/AudioData.msg"
   "srv/SetHome.srv"
+  "action/PlayAudio.action"
   DEPENDENCIES sensor_msgs std_msgs geometry_msgs
   )
 
