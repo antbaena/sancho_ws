@@ -1,7 +1,8 @@
 import os
+
+from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch_ros.actions import Node
-from ament_index_python.packages import get_package_share_directory
 
 
 def generate_launch_description():
@@ -22,17 +23,17 @@ def generate_launch_description():
         [
             # # Collision Monitor
             Node(
-                 package="nav2_collision_monitor",
-                 executable="collision_monitor",
-                 name="collision_monitor",
-                 prefix="xterm -hold -e",
-                 emulate_tty=True,
-                 parameters=[nav2_params_path],
-                 remappings=[
-                     ("cmd_vel_in", "cmd_vel_raw"),
-                     ("cmd_vel_out", "cmd_vel"),
-                 ],
-             ),
+                package="nav2_collision_monitor",
+                executable="collision_monitor",
+                name="collision_monitor",
+                prefix="xterm -hold -e",
+                emulate_tty=True,
+                parameters=[nav2_params_path],
+                remappings=[
+                    ("cmd_vel_in", "cmd_vel_raw"),
+                    ("cmd_vel_out", "cmd_vel"),
+                ],
+            ),
             #  Nodo de mapa
             Node(
                 package="nav2_map_server",
@@ -49,10 +50,8 @@ def generate_launch_description():
                 prefix="xterm -hold -e",
                 emulate_tty=True,
                 parameters=[nav2_params_path],
-                remappings=[
-                ("/map", "/localization_map")
-                ],
-                ),
+                remappings=[("/map", "/localization_map")],
+            ),
             # Nodo de localización (AMCL)
             Node(
                 package="nav2_amcl",
@@ -86,7 +85,8 @@ def generate_launch_description():
                     ("cmd_vel", "cmd_vel")
                 ],  # Importante redirigir salida al velocity smoother
             ),
-            # Nodo de comportamiento basado en árboles de decisión (BT Navigator)
+            # Nodo de comportamiento basado en árboles de decisión (BT
+            # Navigator)
             Node(
                 package="nav2_bt_navigator",
                 executable="bt_navigator",
@@ -133,16 +133,18 @@ def generate_launch_description():
             ),
             Node(
                 package="depthimage_to_laserscan",
-                executable="depthimage_to_laserscan_node",  # Verifica el nombre del ejecutable según la documentación
+                executable="depthimage_to_laserscan_node",
+                # Verifica el nombre del ejecutable según la documentación
                 name="depthimage_to_laserscan",
-                parameters=[depthimage_to_laserscan_params],    
+                parameters=[depthimage_to_laserscan_params],
                 remappings=[
-                    # Se remapean los nombres de los topics internos a los de tu sensor:
+                    # Se remapean los nombres de los topics internos a los de
+                    # tu sensor:
                     ("depth_camera_info", "/astra_camera/camera/depth/camera_info"),
                     ("depth", "/astra_camera/camera/depth/image_raw"),
                     ("scan", "/scan_camera"),
                 ],
-                output="screen"
+                output="screen",
             ),
         ]
     )

@@ -7,6 +7,7 @@ relativos a la posición actual dentro de una ventana local.
 import math
 import random
 
+from rclpy.callback_groups import ReentrantCallbackGroup
 import rclpy
 from action_msgs.msg import GoalStatus
 from geometry_msgs.msg import PoseStamped
@@ -19,7 +20,7 @@ from tf2_ros import (Buffer, ConnectivityException, ExtrapolationException,
                      LookupException, TransformListener)
 from tf_transformations import quaternion_from_euler
 
-from sancho_navigation.srv import SetHome
+from sancho_msgs.srv import SetHome
 
 
 class RoamingNode(Node):
@@ -46,12 +47,15 @@ class RoamingNode(Node):
         self.use_local_window = self.get_parameter("use_local_window").value
         self.local_range_x = self.get_parameter("local_range_x").value
         self.local_range_y = self.get_parameter("local_range_y").value
-        self.max_attempts = int(self.get_parameter("max_generate_attempts").value)
-        self.history_size = int(self.get_parameter("recent_goal_history").value)
+        self.max_attempts = int(
+            self.get_parameter("max_generate_attempts").value)
+        self.history_size = int(
+            self.get_parameter("recent_goal_history").value)
         self.idle_time = self.get_parameter("idle_time_before_new_goal").value
         self.timer_period = self.get_parameter("check_interval").value
         self.max_path_length = self.get_parameter("max_path_length").value
-        self.compute_path_timeout = self.get_parameter("compute_path_timeout").value
+        self.compute_path_timeout = self.get_parameter(
+            "compute_path_timeout").value
         self.min_path_length = self.get_parameter("min_path_length").value
         self.max_dist_home = self.get_parameter("max_dist_home").value
         # Estado
@@ -62,7 +66,7 @@ class RoamingNode(Node):
         # Estado Home
         self.home = None
         self.home_init_timer = self.create_timer(
-            0.5, self._init_home, callback_group=self.cb_group
+            0.5, self._init_home, callback_group=self.callback_group
         )
         self.success_nav_count = 0
         self.success_nav_threshold = 5
@@ -73,8 +77,10 @@ class RoamingNode(Node):
 
         # Action clients
         self.nav_action_client = ActionClient(
-            self, NavigateToPose, "navigate_to_pose", callback_group=self.callback_group
-        )
+            self,
+            NavigateToPose,
+            "navigate_to_pose",
+            callback_group=self.callback_group)
         self.path_action_client = ActionClient(
             self,
             ComputePathToPose,
@@ -98,8 +104,9 @@ class RoamingNode(Node):
         self.home_init_timer.cancel()
         # Arrancar timer principal de roaming
         self.timer = self.create_timer(
-            self.timer_period, self.timer_callback, callback_group=self.cb_group
-        )
+            self.timer_period,
+            self.timer_callback,
+            callback_group=self.callback_group)
 
     def handle_set_home(self, request, response):
         """Servicio que fija la posición de Home si es alcanzable."""
@@ -163,8 +170,15 @@ class RoamingNode(Node):
             ps = PoseStamped()
             ps.header.frame_id = self.frame_id
             ps.header.stamp = self.get_clock().now().to_msg()
-            ps.pose.position = trans.transform.translation
-            ps.pose.orientation = trans.transform.rotation
+            ps.pose.position.x = trans.transform.translation.x
+            ps.pose.position.y = trans.transform.translation.y
+            ps.pose.position.z = trans.transform.translation.z
+
+            # Orientación
+            ps.pose.orientation.x = trans.transform.rotation.x
+            ps.pose.orientation.y = trans.transform.rotation.y
+            ps.pose.orientation.z = trans.transform.rotation.z
+            ps.pose.orientation.w = trans.transform.rotation.w
             return ps
         except (LookupException, ConnectivityException, ExtrapolationException) as e:
             self.get_logger().warn(f"Error al obtener pose actual: {e}")
@@ -180,7 +194,8 @@ class RoamingNode(Node):
         return math.hypot(dx, dy)
 
     def timer_callback(self):
-        idle = (self.get_clock().now() - self.last_goal_end_time).nanoseconds / 1e9
+        idle = (self.get_clock().now() -
+                self.last_goal_end_time).nanoseconds / 1e9
         if self.goal_active or idle < self.idle_time:
             return
 
@@ -221,7 +236,8 @@ class RoamingNode(Node):
                 min_y = start.pose.position.y - self.local_range_y
                 max_y = start.pose.position.y + self.local_range_y
             else:
-                # Ventana global configurable (mantener min/max originales si se desean)
+                # Ventana global configurable (mantener min/max originales si
+                # se desean)
                 min_x = self.get_parameter(
                     "frame_id"
                 ).value  # placeholder si se implementa global
@@ -310,8 +326,10 @@ class RoamingNode(Node):
 
             length = 0.0
             for i in range(num_segments - 1):
-                dx = path.poses[i + 1].pose.position.x - path.poses[i].pose.position.x
-                dy = path.poses[i + 1].pose.position.y - path.poses[i].pose.position.y
+                dx = path.poses[i + 1].pose.position.x - \
+                    path.poses[i].pose.position.x
+                dy = path.poses[i + 1].pose.position.y - \
+                    path.poses[i].pose.position.y
                 length += math.hypot(dx, dy)
 
             if length <= self.min_path_length or length > self.max_path_length:
