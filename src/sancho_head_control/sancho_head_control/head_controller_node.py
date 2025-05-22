@@ -24,7 +24,7 @@ class HRIHeadNode(Node):
         self.declare_parameter('idle_move_max_interval', 8.0)
         self.declare_parameter('pan_limit', [-1.20, 1.20])
         self.declare_parameter('tilt_limit', [-0.5, 0.0])
-        self.declare_parameter('tolerance', 0.1)  
+        self.declare_parameter('tolerance', 0.001)  
         self.declare_parameter('tracking_timeout', 5.0)
         self.declare_parameter('joint_group_name', 'turret')
         self.declare_parameter('pan_joint', 'pan')
@@ -97,8 +97,8 @@ class HRIHeadNode(Node):
         # Extraer yaw/pan y pitch/tilt
         q = msg.pose.orientation
         roll, pitch, yaw = tf_transformations.euler_from_quaternion([q.x, q.y, q.z, q.w])
-        target_pan  = -yaw     # ← invertir si gira al revés
-        target_tilt = -pitch   # ← invertir si se inclina al revés
+        target_pan  = yaw     # ← invertir si gira al revés
+        target_tilt = pitch   # ← invertir si se inclina al revés
 
 
         # Si aún no hemos recibido nunca joint_states, movemos de todas formas
