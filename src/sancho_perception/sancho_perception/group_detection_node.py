@@ -66,7 +66,6 @@ class GroupDetectionNode(LifecycleNode):
             GroupInfo, self.group_topic, 10
         )
         self.marker_pub = self.create_lifecycle_publisher(Marker, "/group_marker", 10)
-        self.timer = self.create_timer(self.check_period, self.timer_callback)
         self.timer.cancel()
 
         return super().on_configure(state)
@@ -79,7 +78,7 @@ class GroupDetectionNode(LifecycleNode):
         self.persons_sub = self.create_subscription(
             PoseArray, self.persons_topic, self.poses_callback, qos
         )
-        self.timer.reset()  # Reiniciar el timer para el chequeo de persistencia
+        self.timer = self.create_timer(self.check_period, self.timer_callback)
 
         return super().on_activate(state)
 
@@ -129,12 +128,6 @@ class GroupDetectionNode(LifecycleNode):
         self.persons_sub = None
         return super().on_shutdown(state)
 
-    def on_error(self, state: LifecycleState) -> TransitionCallbackReturn:
-        self.get_logger().error(
-            "Ha ocurrido un error. Nodo pasando a estado de error..."
-        )
-        self.reset_group_detection()
-        return super().on_error(state)
 
     def poses_callback(self, msg: PoseArray):
         current_timestamp = msg.header.stamp
