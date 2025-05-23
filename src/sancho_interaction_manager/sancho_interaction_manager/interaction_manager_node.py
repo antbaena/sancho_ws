@@ -1,9 +1,9 @@
 import rclpy
 from rclpy.lifecycle import LifecycleNode
 from rclpy.lifecycle import TransitionCallbackReturn
-from lifecycle_msgs.srv import ChangeState,GetAvailableTransitions
+from lifecycle_msgs.srv import ChangeState
 from lifecycle_msgs.msg import Transition
-from geometry_msgs.msg import Twist
+
 from sancho_msgs.msg import FaceArray
 from sancho_msgs.action import PlayAudio
 from std_msgs.msg import Float32
@@ -12,7 +12,7 @@ from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.qos import QoSProfile, ReliabilityPolicy
 from rclpy.action import ActionClient
-from rclpy.duration import Duration
+
 import threading
 from geometry_msgs.msg import PoseStamped
 import math
