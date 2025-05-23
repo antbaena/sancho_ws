@@ -33,6 +33,7 @@ class FaceDetectorLifecycleNode(LifecycleNode):
             ('downscale_factor', 0.5),
             ('visualization', True),
             ('processing_rate', 10.0),
+            ('visualization_topic', '/face_detections/vis')
         ])
 
         self.bridge = CvBridge()
@@ -60,7 +61,7 @@ class FaceDetectorLifecycleNode(LifecycleNode):
         qos = QoSProfile(depth=10)
         self.pub = self.create_lifecycle_publisher(FaceArray, self.get_parameter('detections_topic').value, qos)
         if self.visualization:
-            self.vis_pub = self.create_lifecycle_publisher(Image, self.get_parameter('detections_topic').value + '/vis', qos)
+            self.vis_pub = self.create_lifecycle_publisher(Image, self.get_parameter('visualization_topic').value, qos)
 
         return super().on_configure(state)
 
@@ -136,9 +137,13 @@ class FaceDetectorLifecycleNode(LifecycleNode):
 
         idxs = cv2.dnn.NMSBoxes(boxes, scores, self.conf_thresh, self.nms_iou)
         filtered, filtered_scores = [], []
-        for i in idxs.flatten():
-            filtered.append(boxes[i])
-            filtered_scores.append(scores[i])
+        if idxs is not None and len(idxs) > 0:
+            if isinstance(idxs, tuple):
+                idxs = np.array(idxs)
+            for i in idxs.flatten():
+                filtered.append(boxes[i])
+                filtered_scores.append(scores[i])
+
 
         fa = FaceArray(header=self.latest_img.header)
         for box, sc in zip(filtered, filtered_scores):

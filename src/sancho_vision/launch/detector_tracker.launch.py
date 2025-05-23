@@ -65,7 +65,7 @@ def generate_launch_description():
             face_detector_node,
             face_tracker_node,
             TimerAction(
-                period=5.0,
+                period=7.0,
                 actions=[
                     configure_face,
                     configure_tracker,
