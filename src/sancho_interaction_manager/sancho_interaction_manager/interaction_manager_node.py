@@ -34,7 +34,7 @@ class InteractionManager(LifecycleNode):
     ) = range(9)
 
     def __init__(self):
-        super().__init__('interaction_manager_sync')
+        super().__init__('interaction_manager')
         # Callback groups para separar lifecycle / IO
         self.life_cb = ReentrantCallbackGroup()
         self.io_cb   = ReentrantCallbackGroup()
@@ -238,7 +238,10 @@ class InteractionManager(LifecycleNode):
                 self.get_logger().info('Cara encontrada!')
                 self.state = self.STATE_TRACK_AND_AUDIO
             elif self.attempt < self.max_attempts:
-                angle = 45.0 if self.attempt % 2 == 0 else -45.0
+                if self.attempt == self.max_attempts - 1:
+                    angle = 0.0
+                else:
+                    angle = 45.0 if self.attempt % 2 == 0 else -45.0
                 self._rotate_head(angle)
                 self.attempt += 1
                 self.state = self.STATE_WAIT
@@ -350,9 +353,10 @@ class InteractionManager(LifecycleNode):
 
     def _rotate_head(self, angle: float):
     # Convertir ángulo de grados a radianes
-        angle_rad = math.radians(angle)
+        angle_pan = math.radians(angle)
+        angle_tilt = math.radians(30.0)  # Cabeza no inclina hacia arriba/abajo
         # Convertir a quaternion para rotación en Z
-        q = quaternion_from_euler(0.0, 0.0, angle_rad)
+        q = quaternion_from_euler(0.0, -angle_tilt, angle_pan)
 
         # Crear mensaje PoseStamped
         msg = PoseStamped()
@@ -366,7 +370,7 @@ class InteractionManager(LifecycleNode):
         msg.pose.orientation.z = q[2]
         msg.pose.orientation.w = q[3]
 
-        self.get_logger().info(f'Publicando rotación de cabeza: {angle:.1f}° ({angle_rad:.2f} rad)')
+        self.get_logger().info(f'Publicando rotación de cabeza: {angle:.1f}° ({angle_pan:.2f} rad)')
         self.head_movement_pub.publish(msg)
 
 
