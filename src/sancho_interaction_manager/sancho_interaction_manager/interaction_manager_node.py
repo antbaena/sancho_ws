@@ -12,7 +12,8 @@ from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.qos import QoSProfile, ReliabilityPolicy
 from rclpy.action import ActionClient
-
+from ament_index_python.packages import get_package_share_directory
+import os
 import threading
 from geometry_msgs.msg import PoseStamped
 import math
@@ -34,11 +35,17 @@ class InteractionManager(LifecycleNode):
     ) = range(9)
 
     def __init__(self):
+
         super().__init__('interaction_manager')
         # Callback groups para separar lifecycle / IO
         self.life_cb = ReentrantCallbackGroup()
         self.io_cb   = ReentrantCallbackGroup()
 
+        package_name = 'sancho_interaction_manager'
+        package_path = get_package_share_directory(package_name)
+        relative_speach_file_path = 'audios/audio_tts_xtts.wav'
+        self.speech_file_path = os.path.join(package_path, relative_speach_file_path)
+        
         # Parámetros
         self.declare_parameter('face_size_threshold', 0.1)
         self.declare_parameter('face_confidence_threshold', 0.7)
