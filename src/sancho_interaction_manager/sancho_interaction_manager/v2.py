@@ -4,23 +4,37 @@ from rclpy.lifecycle import TransitionCallbackReturn
 from lifecycle_msgs.srv import ChangeState
 from lifecycle_msgs.msg import Transition
 from geometry_msgs.msg import Twist
-from sancho_msgs.msg import FaceArray, PlayAudio
+from sancho_msgs.msg import FaceArray
+from sancho_msgs.action import PlayAudio
 from std_msgs.msg import Float32
-from message_filters import Subscriber, ApproximateTimeSynchronizer
+from message_filters import Subscriber
 from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.qos import QoSProfile, ReliabilityPolicy
 from rclpy.action import ActionClient
-import asyncio
+from rclpy.duration import Duration
+from rclpy.task import Future
 
 class InteractionManager(LifecycleNode):
+
+    # Estados de la state machine
+    (
+        STATE_IDLE,
+        STATE_ACTIVATE_FACE_DETECTOR,
+        STATE_SEARCH_FACE,
+        STATE_FALLBACK_TDOA,
+        STATE_TRACK_AND_AUDIO,
+        STATE_DEACTIVATE_ALL,
+        STATE_DONE
+    ) = range(7)
+
     def __init__(self):
-        super().__init__('interaction_manager')
-        # Callback groups
+        super().__init__('interaction_manager_sync')
+        # Callback groups para separar lifecycle / IO
         self.life_cb = ReentrantCallbackGroup()
         self.io_cb   = ReentrantCallbackGroup()
 
-        # Parámetros configurables
+        # Parámetros
         self.declare_parameter('face_size_threshold', 0.1)
         self.declare_parameter('face_confidence_threshold', 0.7)
         self.declare_parameter('max_face_attempts', 3)
@@ -29,198 +43,229 @@ class InteractionManager(LifecycleNode):
         self.declare_parameter('rotation_duration', 1.0)
 
         # Módulos a gestionar
-        self.modules = ['face_detector', 'tdoa_processor', 'audio_player', 'face_tracker']
+        self.modules = ['/face_detector', '/face_tracker', '/audio_player']
+        self.module_clients = {}
 
-        # QoS para sensores y control
+        # QoS
         self.sensor_qos = QoSProfile(depth=1, reliability=ReliabilityPolicy.BEST_EFFORT)
         self.control_qos = QoSProfile(depth=10, reliability=ReliabilityPolicy.RELIABLE)
 
-        # Variables internas
-        self.clients = {}
-        self.cmd_vel = None
-        self.audio_action = None
+        # Subscriptions y publishers (inactivas al principio)
         self.face_sub = None
         self.tdoa_sub = None
-        self.ats = None
+        self.cmd_vel = None
+
+        # Action client
+        self.audio_action = None
+
+        # Variables de runtime
         self.face_msgs = []
         self.tdoa_angle = None
-        self._face_event = asyncio.Event()
+        self.attempt = 0
+        self.best_face = None
 
+        # Máquina de estados
+        self.state = self.STATE_IDLE
+        self.main_timer = None
+
+        self.get_logger().info('InteractionManager (sync) creado')
+
+    # ------------------------------------------------------------
+    # Lifecycle callbacks
+    # ------------------------------------------------------------
     def on_configure(self, state):
-        # Configura clientes a servicios de ciclo de vida de módulos
-        for m in self.modules:
-            self.clients[m] = self.create_client(
-                ChangeState, f'{m}/change_state', callback_group=self.life_cb)
+        self.get_logger().info('Configuring InteractionManager')
 
-        # Publisher de velocidad usando ciclo de vida
+        # Leer parámetros
+        self.max_attempts = self.get_parameter('max_face_attempts').value
+        self.face_size_threshold = self.get_parameter('face_size_threshold').value
+        self.face_confidence_threshold = self.get_parameter('face_confidence_threshold').value
+        self.tdoa_angle_limit = self.get_parameter('tdoa_angle_limit').value
+        self.rotation_speed = self.get_parameter('rotation_speed').value
+        self.rotation_duration = self.get_parameter('rotation_duration').value
+
+        # Crear clients de ciclo de vida para cada módulo
+        for m in self.modules:
+            cli = self.create_client(ChangeState, f'{m}/change_state',
+                                     callback_group=self.life_cb)
+            if not cli.wait_for_service(timeout_sec=5.0):
+                self.get_logger().error(f"No se encontró el servicio {m}/change_state")
+                return TransitionCallbackReturn.FAILURE
+            self.module_clients[m] = cli
+            self.get_logger().info(f"Cliente de lifecycle para {m} listo")
+
+        # Publisher de cmd_vel (lifecycle)
         self.cmd_vel = self.create_lifecycle_publisher(
             Twist, 'cmd_vel', self.control_qos)
 
-        # Cliente de acción para reproducir audio
+        # Action client para audio
         self.audio_action = ActionClient(
             self, PlayAudio, 'play_audio', callback_group=self.life_cb)
+        if not self.audio_action.wait_for_server(timeout_sec=5.0):
+            self.get_logger().error("Servidor de action 'play_audio' no disponible")
+            return TransitionCallbackReturn.FAILURE
 
-        # Callback para parámetros dinámicos
-        self.add_on_set_parameters_callback(self._on_param_event)
-
-        self.get_logger().info('InteractionManager configured')
-        return TransitionCallbackReturn.SUCCESS
+        self.get_logger().info('InteractionManager configurado')
+        return super().on_configure(state)
 
     def on_activate(self, state):
-        # Inicializa suscripciones sincronizadas de sensores
-        self.face_sub = Subscriber(
-            self, FaceArray, 'face_detections', qos_profile=self.sensor_qos,
-            callback_group=self.io_cb)
-        self.tdoa_sub = Subscriber(
-            self, Float32, 'tdoa_angle', qos_profile=self.sensor_qos,
-            callback_group=self.io_cb)
-        self.ats = ApproximateTimeSynchronizer(
-            [self.face_sub, self.tdoa_sub], queue_size=10, slop=0.1)
-        self.ats.registerCallback(self._synced_cb)
+        self.get_logger().info('Activando interacción (sync)')
+        # Subscriptions de sensores
+        self.face_sub = Subscriber(self, FaceArray, 'face_detections',
+                                   qos_profile=self.sensor_qos,
+                                   callback_group=self.io_cb)
+        self.face_sub.registerCallback(self._face_cb)
 
-        # Lanza la rutina de interacción en segundo plano
-        asyncio.ensure_future(self._run_interaction())
+        self.tdoa_sub = Subscriber(self, Float32, 'tdoa_angle',
+                                   qos_profile=self.sensor_qos,
+                                   callback_group=self.io_cb)
+        self.tdoa_sub.registerCallback(self._tdoa_cb)
 
-        self.get_logger().info('InteractionManager activated')
-        return TransitionCallbackReturn.SUCCESS
+        # Iniciar máquina de estados en primer estado útil
+        self.state = self.STATE_ACTIVATE_FACE_DETECTOR
+        self.main_timer = self.create_timer(0.1, self._run_state)
+        return super().on_activate(state)
 
     def on_deactivate(self, state):
-        # Limpia suscripciones y sincronizador
-        if self.ats:
-            self.ats.callbacks.clear()
-            self.ats = None
+        self.get_logger().info('Desactivando interacción (sync)')
+        if self.main_timer:
+            self.main_timer.cancel()
+            self.main_timer = None
+        # Destruir subscriptions
         if self.face_sub:
             self.destroy_subscription(self.face_sub)
             self.face_sub = None
         if self.tdoa_sub:
             self.destroy_subscription(self.tdoa_sub)
             self.tdoa_sub = None
-        # Destruir publisher de cmd_vel
-        if self.cmd_vel is not None:
+        # Publisher y clients
+        if self.cmd_vel:
             self.destroy_lifecycle_publisher(self.cmd_vel)
             self.cmd_vel = None
-        # Destruir clientes de ciclo de vida
-        for m in self.clients:
-            if m in self.clients:
-                self.destroy_client(self.clients[m])
-                del self.clients[m
-                                 
-                                 ]
-        self.get_logger().info('InteractionManager deactivated')
-        return TransitionCallbackReturn.SUCCESS
+        for cli in self.module_clients.values():
+            self.destroy_client(cli)
+        self.module_clients.clear()
+        return super().on_deactivate(state)
 
-    def _on_param_event(self, params):
-        from rcl_interfaces.msg import SetParametersResult
-        for p in params:
-            if p.name in [
-                'face_size_threshold', 'face_confidence_threshold',
-                'max_face_attempts', 'tdoa_angle_limit',
-                'rotation_speed', 'rotation_duration']:
-                self.get_logger().info(f"Parameter {p.name} updated to {p.value}")
-        return SetParametersResult(successful=True)
+    # ------------------------------------------------------------
+    # Callbacks de sensores
+    # ------------------------------------------------------------
+    def _face_cb(self, msg: FaceArray):
+        self.face_msgs = msg.faces
 
-    def _synced_cb(self, face_msg: FaceArray, tdoa_msg: Float32):
-        self.face_msgs = face_msg.faces
-        self.tdoa_angle = tdoa_msg.data
-        if self.select_best_face():
-            self._face_event.set()
+    def _tdoa_cb(self, msg: Float32):
+        self.tdoa_angle = msg.data
 
-    def select_best_face(self):
-        thr_size = self.get_parameter('face_size_threshold').value
-        thr_conf = self.get_parameter('face_confidence_threshold').value
+    # ------------------------------------------------------------
+    # Utils sync: llamar servicio de lifecycle
+    # ------------------------------------------------------------
+    def call_lifecycle(self, module: str, transition_id: int) -> bool:
+        cli = self.module_clients.get(module)
+        if cli is None:
+            self.get_logger().error(f"Cliente inexistente: {module}")
+            return False
+        req = ChangeState.Request()
+        req.transition.id = transition_id
+        fut = cli.call_async(req)
+        rclpy.spin_until_future_complete(self, fut, timeout_sec=5.0)
+        if fut.result() is None or not fut.result().success:
+            self.get_logger().error(f"{module} transición {transition_id} fallida")
+            return False
+        return True
+
+    # ------------------------------------------------------------
+    # State machine
+    # ------------------------------------------------------------
+    def _run_state(self):
+        if self.state == self.STATE_ACTIVATE_FACE_DETECTOR:
+            if self.call_lifecycle('/face_detector', Transition.TRANSITION_ACTIVATE):
+                self.get_logger().info('Face detector activado')
+                self.attempt = 0
+                self.state = self.STATE_SEARCH_FACE
+            else:
+                self.state = self.STATE_DEACTIVATE_ALL
+
+        elif self.state == self.STATE_SEARCH_FACE:
+            self.best_face = self._select_best_face()
+            if self.best_face:
+                self.get_logger().info('Cara encontrada!')
+                self.state = self.STATE_TRACK_AND_AUDIO
+            elif self.attempt < self.max_attempts:
+                # girar base y reintentar
+                # direction = self.rotation_speed * self.rotation_duration
+                # if self.attempt % 2 == 1:
+                #     direction = -direction
+                # self.get_logger().info(f"Intento {self.attempt+1}, girando {'izq' if direction>0 else 'der'}")
+                # self._rotate_base(direction)
+                self.get_logger().info(f"DUMMY: Intento {self.attempt+1}, girando CABEZA")
+                self.attempt += 1
+            else:
+                self.get_logger().warn('No se encontró cara, fallback TDOA')
+                # self.state = self.STATE_FALLBACK_TDOA
+                self.state = self.STATE_DEACTIVATE_ALL #dummy
+
+        elif self.state == self.STATE_FALLBACK_TDOA:
+            if abs(self.tdoa_angle or 999) <= self.tdoa_angle_limit:
+                self.get_logger().info(f"Girando por TDOA: {self.tdoa_angle:.1f}°")
+                self._rotate_base(self.tdoa_angle)
+                self.best_face = self._select_best_face()
+                if self.best_face:
+                    self.state = self.STATE_TRACK_AND_AUDIO
+                    return
+            self.state = self.STATE_DEACTIVATE_ALL
+
+        elif self.state == self.STATE_TRACK_AND_AUDIO:
+            self.call_lifecycle('/face_tracker', Transition.TRANSITION_ACTIVATE)
+            self.call_lifecycle('/audio_player', Transition.TRANSITION_ACTIVATE)
+            # Reproducir audio
+            goal = PlayAudio.Goal()
+            goal.filename = '/home/mapir/sancho_ws/audio_tts_xtts.wav'
+            send_goal_fut = self.audio_action.send_goal_async(goal)
+            rclpy.spin_until_future_complete(self, send_goal_fut)
+            result_fut = send_goal_fut.result().get_result_async()
+            rclpy.spin_until_future_complete(self, result_fut)
+            self.get_logger().info('Audio reproducido, completando interacción')
+            self.state = self.STATE_DEACTIVATE_ALL
+
+        elif self.state == self.STATE_DEACTIVATE_ALL:
+            # Desactivamos todos los módulos y luego el nodo
+            for m in self.modules:
+                self.call_lifecycle(m, Transition.TRANSITION_DEACTIVATE)
+            self.trigger_transition(Transition.TRANSITION_DEACTIVATE)
+            self.state = self.STATE_DONE
+
+        # STATE_DONE o cualquier otro: nada más que hacer
+
+    # ------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------
+    def _select_best_face(self):
         best = None
         for f in self.face_msgs:
-            if f.confidence >= thr_conf and f.width >= thr_size:
+            if (f.confidence >= self.face_confidence_threshold
+                and f.width >= self.face_size_threshold):
                 if best is None or f.confidence > best.confidence:
                     best = f
         return best
 
-    async def call_lifecycle(self, module: str, transition_id: int):
-        client = self.clients.get(module)
-        if not client or not client.wait_for_service(timeout_sec=2.0):
-            self.get_logger().error(f"Service {module}/change_state unavailable")
-            return False
-        req = ChangeState.Request()
-        req.transition.id = transition_id
-        resp = await client.call_async(req)
-        if not resp.success:
-            self.get_logger().error(f"{module}: transition {transition_id} failed")
-        return resp.success
-
-    async def rotate_base(self, angle: float):
+    def _rotate_base(self, angle: float):
         twist = Twist()
-        speed = self.get_parameter('rotation_speed').value
+        speed = self.rotation_speed
         twist.angular.z = speed if angle > 0 else -speed
         self.cmd_vel.publish(twist)
-        await asyncio.sleep(abs(angle) / speed)
+        # bloqueante: esperamos el tiempo necesario
+        rclpy.sleep(Duration(seconds=abs(angle)/speed))
         twist.angular.z = 0.0
         self.cmd_vel.publish(twist)
 
-    async def _run_interaction(self):
-        # 1. Activa detección de caras
-        if not await self.call_lifecycle('face_detector', Transition.TRANSITION_ACTIVATE):
-            return await self.deactivate()
 
-        # 2. Búsqueda activa de cara con reintentos
-        max_attempts = self.get_parameter('max_face_attempts').value
-        found = None
-        for i in range(max_attempts):
-            self._face_event.clear()
-            try:
-                await asyncio.wait_for(self._face_event.wait(), timeout=1.0)
-                found = self.select_best_face()
-                break
-            except asyncio.TimeoutError:
-                angle = self.get_parameter('rotation_speed').value * self.get_parameter('rotation_duration').value
-                direction = angle if i % 2 == 0 else -angle
-                self.get_logger().info(f"Attempt {i+1}, rotating {'left' if direction>0 else 'right'}")
-                await self.rotate_base(direction)
-
-        # 3. Fallback TDOA si no encontró cara
-        if not found:
-            if not await self.call_lifecycle('tdoa_processor', Transition.TRANSITION_ACTIVATE):
-                return await self.deactivate()
-            await asyncio.sleep(0.5)
-            ang = self.tdoa_angle
-            lim = self.get_parameter('tdoa_angle_limit').value
-            if ang is not None and abs(ang) <= lim:
-                self.get_logger().info(f"Rotating by TDOA: {ang}")
-                await self.rotate_base(ang)
-                await asyncio.sleep(1.0)
-                found = self.select_best_face()
-            if not found:
-                self.get_logger().warn('No face found after TDOA')
-                return await self.deactivate()
-
-        # 4. Tracking y audio
-        await self.call_lifecycle('face_tracker', Transition.TRANSITION_ACTIVATE)
-        await self.call_lifecycle('audio_player', Transition.TRANSITION_ACTIVATE)
-        goal = PlayAudio.Goal()
-        goal.filename = 'welcome_message.wav'
-        action_fut = await self.audio_action.send_goal_async(goal)
-        await action_fut.get_result_async()
-
-        # 5. Finaliza secuencia y desactiva el propio nodo
-        self.get_logger().info('Interaction complete, deactivating node')
-        await self.deactivate()
-
-    async def deactivate(self):
-        # Desactiva todos los módulos y hace la transición del nodo
-        for m in self.modules:
-            await self.call_lifecycle(m, Transition.TRANSITION_DEACTIVATE)
-        # Solicita la desactivación del nodo
-        self.trigger_transition(Transition.TRANSITION_DEACTIVATE)
-
-    def main(self):
-        executor = MultiThreadedExecutor()
-        executor.add_node(self)
-        try:
-            executor.spin()
-        finally:
-            self.destroy_node()
-
-
-if __name__ == '__main__':
-    rclpy.init()
+def main(args=None):
+    rclpy.init(args=args)
     node = InteractionManager()
-    node.main()
+    executor = MultiThreadedExecutor()
+    executor.add_node(node)
+    try:
+        executor.spin()
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()
