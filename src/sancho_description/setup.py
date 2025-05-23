@@ -25,6 +25,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+            'joint_state_merger_node = sancho_description.joint_state_merger_node:main',
+            
         ],
     },
 )

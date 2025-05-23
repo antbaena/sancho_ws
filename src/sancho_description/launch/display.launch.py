@@ -19,15 +19,24 @@ def generate_launch_description():
             name="robot_state_publisher",
             output="screen",
             parameters=[{"robot_description": open(urdf_file).read()}],
-            remappings=[("/joint_states", "/wxxms/joint_states")]
+            remappings=[("/joint_states", "/joint_states_merged")]
 
         ),
-        # Node(
-        #     package='joint_state_publisher',
-        #     executable='joint_state_publisher',
-        #     name='joint_state_publisher',
-        #     output='screen'
-        # ),
+        Node(
+            package="joint_state_publisher",
+            executable="joint_state_publisher",
+            name="joint_state_publisher",
+            output="screen",
+            parameters=[{"use_sim_time": False}],
+            remappings=[("/joint_states", "/joint_states_urdf")],
+        ),
+        Node(
+            package="sancho_description",
+            executable="joint_state_merger_node",
+            name="joint_state_merger_node",
+            output="screen",
+        ),
+
         # Node(
         #     package="rviz2",
         #     executable="rviz2",
