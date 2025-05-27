@@ -51,7 +51,7 @@ class OrchestratorNode(Node):
         self.declare_parameter('group_waypoint_topic', '/group_waypoint')
         self.declare_parameter('navigate_action_name', 'navigate_to_pose')
         self.declare_parameter('social_node_name', 'interaction_manager')
-        self.declare_parameter('group_node_name', 'group_waypoint_generator_lifecycle')
+        self.declare_parameter('group_node_name', 'group_waypoint_generator_node')
 
         # Load params
         self.navigation_timeout = self.get_parameter('navigation_timeout').value
