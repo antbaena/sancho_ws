@@ -110,7 +110,7 @@ export default function SettingsPage() {
                 id="darkMode"
                 checked={darkMode}
                 onChange={e => setDarkMode(e.target.checked)}
-              />
+              disabled/>
               <label className="form-check-label" htmlFor="darkMode">
                 Modo Oscuro
               </label>
