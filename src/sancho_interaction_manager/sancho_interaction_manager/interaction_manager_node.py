@@ -278,7 +278,7 @@ class InteractionManager(LifecycleNode):
             self.call_lifecycle('/audio_player', Transition.TRANSITION_ACTIVATE)
             # Reproducir audio
             goal = PlayAudio.Goal()
-            goal.filename = '/home/mapir/sancho_ws/audio_tts_xtts.wav'
+            goal.filename = self.speech_file_path
             send_goal_fut = self.audio_action.send_goal_async(goal)
             send_goal_fut.add_done_callback(self._on_audio_goal_response)
             # pasamos al estado de espera
