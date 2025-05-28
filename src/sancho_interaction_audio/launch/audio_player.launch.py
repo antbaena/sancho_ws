@@ -4,7 +4,7 @@ import os
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, ExecuteProcess, TimerAction, GroupAction
 from launch.substitutions import LaunchConfiguration
-from launch_ros.actions import LifecycleNode
+from launch_ros.actions import LifecycleNode, Node
 
 def generate_launch_description():
     # Parámetros de lanzamiento
@@ -21,6 +21,34 @@ def generate_launch_description():
         prefix=prefix_cmd,
         emulate_tty=True,
     )
+    microphone_publisher_node = Node(
+        namespace='',
+        package='sancho_interaction_audio',
+        executable='microphone_capturer',
+        name='microphone_publisher',
+        output='screen',
+        prefix=prefix_cmd,
+        emulate_tty=True,
+    )
+    vad_node = Node(
+        namespace='',
+        package='sancho_interaction_audio',
+        executable='voice_activity_detector',
+        name='vad_node',
+        output='screen',
+        prefix=prefix_cmd,
+        emulate_tty=True,
+    )
+    sound_direction_node = Node(
+        namespace='',
+        package='sancho_interaction_audio',
+        executable='audio_direction',
+        name='sound_direction_node',
+        output='screen',
+        prefix=prefix_cmd,
+        emulate_tty=True,
+    )
+
     # Comandos para configurar los nodos
     configure_audio = ExecuteProcess(
         cmd=['ros2', 'lifecycle', 'set', ["/", audio_node_name], 'configure'],
@@ -37,6 +65,9 @@ def generate_launch_description():
 
         GroupAction([
             audio_player_node,
+            microphone_publisher_node,
+            vad_node,
+            sound_direction_node,
             TimerAction(
                 period=7.0,
                 actions=[
