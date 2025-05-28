@@ -1,9 +1,0 @@
-sensor_msgs/Image frame
-human_face_recognition_msgs/FacePosition position
----
-sensor_msgs/Image face_aligned
-float32[] features
-std_msgs/String classified
-float32 distance
-int32 pos
-float32 recognition_time

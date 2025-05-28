@@ -1,7 +1,0 @@
-# Request
-float64[] audio_data
-
----
-# Response
-bool success
-string message
