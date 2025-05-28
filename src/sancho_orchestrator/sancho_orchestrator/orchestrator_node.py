@@ -17,21 +17,8 @@ from lifecycle_msgs.srv import ChangeState, GetState
 from lifecycle_msgs.msg import State as LifecycleState
 from lifecycle_msgs.msg import Transition
 from action_msgs.msg import GoalStatus
-
-
-def main(args=None):
-    rclpy.init(args=args)
-    executor = rclpy.executors.MultiThreadedExecutor()
-    node = OrchestratorNode(executor)
-    executor.add_node(node)
-    try:
-        executor.spin()
-    except KeyboardInterrupt:
-        node.get_logger().info("Orchestrator Node interrumpido.")
-    finally:
-        node.destroy_node()
-        rclpy.shutdown()
-
+from nav2_msgs.srv import ManageLifecycleNodes
+from sancho_msgs.srv import SocialState
 
 class OrchestratorState:
     BUSCANDO = 'BUSCANDO'
@@ -41,6 +28,12 @@ class OrchestratorState:
 
 
 class OrchestratorNode(Node):
+    (
+        STATE_SOCIAL_READY,
+        STATE_SOCIAL_FINISHED,
+        STATE_SOCIAL_ERROR
+    ) = range(3)
+
     def __init__(self, executor):
         super().__init__('orchestrator_node')
         self.executor = executor
@@ -52,6 +45,7 @@ class OrchestratorNode(Node):
         self.declare_parameter('navigate_action_name', 'navigate_to_pose')
         self.declare_parameter('social_node_name', 'interaction_manager')
         self.declare_parameter('group_node_name', 'group_waypoint_generator_node')
+        self.declare_parameter('navigation_node_name', 'navigation_node')
 
         # Load params
         self.navigation_timeout = self.get_parameter('navigation_timeout').value
@@ -61,6 +55,7 @@ class OrchestratorNode(Node):
         self.navigate_action = self.get_parameter('navigate_action_name').value
         self.social_node = self.get_parameter('social_node_name').value
         self.group_node = self.get_parameter('group_node_name').value
+        self.interaction_active = False
 
         # Initial state
         self.current_state = OrchestratorState.BUSCANDO
@@ -74,14 +69,46 @@ class OrchestratorNode(Node):
         )
         self.nav_client = ActionClient(self, NavigateToPose, self.navigate_action)
 
+        self.cli = self.create_client(ManageLifecycleNodes, '/lifecycle_manager_navigation/manage_nodes')
+        while not self.cli.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info('Esperando al servicio /lifecycle_manager_navigation/manage_nodes...')
+        
         # Activate group detection on startup
         self._change_node_state(
             self.group_node,
             Transition.TRANSITION_ACTIVATE,
             on_done=lambda ok: self.get_logger().info("Detección de grupos activada")
         )
+        self.social_state = self.STATE_SOCIAL_READY
+        self.social_state_srv = self.create_service(
+            SocialState, '/social_state', self._social_state_callback
+        )
 
         self.timer = self.create_timer(0.5, self._on_timer)
+
+    def _social_state_callback(self, request, response):
+        if request.state == self.STATE_SOCIAL_READY:
+            self.get_logger().info("Social state set to READY")
+            self.social_state = self.STATE_SOCIAL_READY
+        elif request.state == self.STATE_SOCIAL_FINISHED:
+            self.get_logger().info("Social state set to FINISHED")
+            self.social_state = self.STATE_SOCIAL_FINISHED
+        elif request.state == self.STATE_SOCIAL_ERROR:
+            self.get_logger().info("Social state set to ERROR")
+            self.social_state = self.STATE_SOCIAL_ERROR
+        return response
+
+
+    def pause_navigation(self):
+        req = ManageLifecycleNodes.Request()
+        req.command = 1  # PAUSE
+        self.future = self.cli.call_async(req)
+
+    def resume_navigation(self):    
+        req = ManageLifecycleNodes.Request()
+        req.command = 2
+        self.future = self.cli.call_async(req)
+
 
     def _set_state(self, new_state):
         self.current_state = new_state
@@ -96,7 +123,12 @@ class OrchestratorNode(Node):
         self._change_node_state(
             self.group_node,
             Transition.TRANSITION_DEACTIVATE,
-            on_done=lambda success: self._after_group_off(success, msg)
+            # on_done=lambda success: self._after_group_off(success, msg)
+        )
+        self._change_node_state(
+                self.social_node,
+                Transition.TRANSITION_ACTIVATE,
+                on_done=self._after_activate_social
         )
 
     def _after_group_off(self, success, msg: PoseStamped):
@@ -138,19 +170,25 @@ class OrchestratorNode(Node):
         status = future.result().status
         if status == GoalStatus.STATUS_SUCCEEDED:
             self.get_logger().info("Navegación exitosa.")
-            self._set_state(OrchestratorState.EVALUANDO)
+            self.pause_navigation()
+            # self._set_state(OrchestratorState.EVALUANDO)
             # Activate social after evaluation
-            self._change_node_state(
-                self.social_node,
-                Transition.TRANSITION_ACTIVATE,
-                on_done=self._after_activate_social
-            )
+            if self.interaction_active:
+                self.get_logger().warn("Ya hay una interacción activa, no se activará socialNode.")
+            else:
+                self._change_node_state(
+                    self.social_node,
+                    Transition.TRANSITION_ACTIVATE,
+                    on_done=self._after_activate_social
+                )
+
         else:
             self.get_logger().warn("Navegación fallida.")
             self._recover_to_search()
 
     def _after_activate_social(self, success):
         if success:
+            self.interaction_active = True
             self.get_logger().info("Social node activated.")
             self._set_state(OrchestratorState.SOCIALIZANDO)
         else:
@@ -166,14 +204,36 @@ class OrchestratorNode(Node):
         elif self.current_state == OrchestratorState.EVALUANDO and elapsed > self.evaluation_timeout:
             self.get_logger().warn("Timeout EVALUANDO.")
             self._recover_to_search()
-        elif self.current_state == OrchestratorState.SOCIALIZANDO and elapsed > self.social_timeout:
-            self.get_logger().warn("Timeout SOCIALIZANDO.")
-            self._change_node_state(
-                self.social_node,
-                Transition.TRANSITION_DEACTIVATE,
-                on_done=lambda ok: self.get_logger().info("Social off"),
-                on_done_chain=self._recover_to_search
-            )
+        elif self.current_state == OrchestratorState.SOCIALIZANDO:
+            if self.social_state == self.STATE_SOCIAL_FINISHED:
+                self.get_logger().info("Socialización finalizada, volviendo a BUSCANDO.")
+                self.social_state = self.STATE_SOCIAL_READY
+                self._set_state(OrchestratorState.BUSCANDO)
+                self._change_node_state(
+                    self.social_node,
+                    Transition.TRANSITION_DEACTIVATE,
+                    on_done=lambda ok: self.get_logger().info("Social node off"),
+                    on_done_chain=self._recover_to_search
+                )
+            elif self.social_state == self.STATE_SOCIAL_ERROR:
+                self.get_logger().error("Error en socialización, volviendo a BUSCANDO.")
+                self.social_state = self.STATE_SOCIAL_READY
+
+                self._change_node_state(
+                    self.social_node,
+                    Transition.TRANSITION_DEACTIVATE,
+                    on_done=lambda ok: self.get_logger().info("Social node off"),
+                    on_done_chain=self._recover_to_search
+                )
+            elif elapsed > self.social_timeout:
+                self.get_logger().warn("Timeout SOCIALIZANDO.")
+                self._change_node_state(
+                    self.social_node,
+                    Transition.TRANSITION_DEACTIVATE,
+                    on_done=lambda ok: self.get_logger().info("Social node off"),
+                    on_done_chain=self._recover_to_search
+                )
+        
 
     def _change_node_state(self, node_name, transition_id, on_done=None, on_done_chain=None):
         # Async GetState
@@ -224,11 +284,29 @@ class OrchestratorNode(Node):
 
     def _recover_to_search(self):
         # Reactivate group and go back to BUSCANDO
+        self.resume_navigation()
+        self._set_state(OrchestratorState.BUSCANDO)
+        self.interaction_active = False
         self._change_node_state(
             self.group_node,
             Transition.TRANSITION_ACTIVATE,
             on_done=lambda ok: self._set_state(OrchestratorState.BUSCANDO)
         )
+
+
+
+def main(args=None):
+    rclpy.init(args=args)
+    executor = rclpy.executors.MultiThreadedExecutor()
+    node = OrchestratorNode(executor)
+    executor.add_node(node)
+    try:
+        executor.spin()
+    except KeyboardInterrupt:
+        node.get_logger().info("Orchestrator Node interrumpido.")
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()
 
 
 if __name__ == '__main__':
