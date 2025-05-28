@@ -46,7 +46,9 @@ class FaceTrackerLifecycle(LifecycleNode):
         self.smoothed_u = None
         self.smoothed_v = None
         self.last_detection_time = None
+        self.control_timer = None
         
+
          # Estados actuales de pan/tilt
         self.current_pan = 0.0
         self.current_tilt = 0.0
@@ -100,7 +102,7 @@ class FaceTrackerLifecycle(LifecycleNode):
             self.face_callback,
             qos_sensor
         )
-        self.create_subscription(JointState,
+        self.joint_sub = self.create_subscription(JointState,
                                  '/wxxms/joint_states',
                                  self.joint_states_callback,
                                  10)
@@ -108,7 +110,7 @@ class FaceTrackerLifecycle(LifecycleNode):
 
          # Timer de control continuo
         timer_period = 1.0 / self.control_rate
-        self.create_timer(timer_period, self.control_loop)
+        self.control_timer = self.create_timer(timer_period, self.control_loop)
 
         self.get_logger().info('Activado: respondiendo a detecciones de caras.')
         return super().on_activate(state)
@@ -119,7 +121,6 @@ class FaceTrackerLifecycle(LifecycleNode):
         self.destroy_subscription(self.face_sub)
         self.destroy_subscription(self.joint_sub)
 
-        self.goal_pub.on_deactivate()
         self.get_logger().info('Nodo desactivado.')
         return super().on_deactivate(state)
 
