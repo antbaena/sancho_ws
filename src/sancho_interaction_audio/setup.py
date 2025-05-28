@@ -25,6 +25,10 @@ setup(
     entry_points={
         'console_scripts': [
             'audio_player = sancho_interaction_audio.audio_player_node:main',
+            'audio_direction = sancho_interaction_audio.audio_direction_node:main',
+            'microphone_capturer = sancho_interaction_audio.microphone_capturer_node:main',
+            'voice_activity_detector = sancho_interaction_audio.vad_node:main',
+            'stereo_recorder = sancho_interaction_audio.stereo_recorder_node:main',
     
         ],
     },

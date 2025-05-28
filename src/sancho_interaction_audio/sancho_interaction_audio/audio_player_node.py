@@ -4,7 +4,6 @@ from rclpy.lifecycle import State
 from rclpy.lifecycle import TransitionCallbackReturn
 from rclpy.action import ActionServer, CancelResponse, GoalResponse
 from sancho_msgs.action import PlayAudio
-import asyncio
 import os
 from playsound import playsound, PlaysoundException
 
