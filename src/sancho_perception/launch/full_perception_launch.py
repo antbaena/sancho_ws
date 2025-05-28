@@ -57,7 +57,7 @@ def generate_launch_description():
     lifecycle_manager = Node(
         package="nav2_lifecycle_manager",
         executable="lifecycle_manager",
-        name="lifecycle_manager_sancho",
+        name="lifecycle_manager_perception",
         output="screen",
         parameters=[
             {
