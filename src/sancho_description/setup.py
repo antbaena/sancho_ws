@@ -18,15 +18,14 @@ setup(
     ],
     install_requires=['setuptools'],
     zip_safe=True,
-    maintainer='mapir',
-    maintainer_email='antoniocanetebaena1234@gmail.com',
-    description='TODO: Package description',
-    license='TODO: License declaration',
+    maintainer='antbaena',
+    maintainer_email='antbaena@uma.es',
+    description='This package provides the necessary description files and launch configurations for the Sancho robot. It includes URDF models, mesh files, and launch scripts to facilitate simulation and control.',
+    license='GPL-3.0-or-later',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
             'joint_state_merger_node = sancho_description.joint_state_merger_node:main',
-            
         ],
     },
 )

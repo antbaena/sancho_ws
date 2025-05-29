@@ -16,10 +16,10 @@ setup(
     ],
     install_requires=['setuptools'],
     zip_safe=True,
-    maintainer='mapir',
-    maintainer_email='antoniocanetebaena1234@gmail.com',
-    description='TODO: Package description',
-    license='TODO: License declaration',
+    maintainer='antbaena',
+    maintainer_email='antbaena@uma.es',
+    description='The sancho_head_control package offers ROS2 nodes for head control and tracking, enabling precise manipulation and orientational adjustments in robotic systems.',
+    license='GPL-3.0-or-later',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
