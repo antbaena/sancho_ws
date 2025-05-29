@@ -14,7 +14,7 @@ def generate_launch_description():
     # Nodos lifecycle
     interaction_manager_node = LifecycleNode(
         namespace='',
-        package='sancho_interaction_manager',
+        package='sancho_interaction',
         executable='interaction_manager_node',
         name=manager_node_name,
         output='screen',

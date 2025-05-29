@@ -1,7 +1,7 @@
 from setuptools import find_packages, setup
 import os
 from glob import glob
-package_name = 'sancho_interaction_manager'
+package_name = 'sancho_interaction'
 
 setup(
     name=package_name,
@@ -23,7 +23,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'interaction_manager_node = sancho_interaction_manager.interaction_manager_node:main',
+            'interaction_manager_node = sancho_interaction.interaction_manager_node:main',
         ],
     },
 )

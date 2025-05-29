@@ -45,7 +45,7 @@ class InteractionManager(LifecycleNode):
         self.life_cb = ReentrantCallbackGroup()
         self.io_cb   = ReentrantCallbackGroup()
 
-        package_name = 'sancho_interaction_manager'
+        package_name = 'sancho_interaction'
         package_path = get_package_share_directory(package_name)
         relative_speach_file_path = 'audios/audio_tts_xtts.wav'
         self.speech_file_path = os.path.join(package_path, relative_speach_file_path)
