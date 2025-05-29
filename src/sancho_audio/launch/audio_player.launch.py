@@ -14,7 +14,7 @@ def generate_launch_description():
     # Nodos lifecycle
     audio_player_node = LifecycleNode(
         namespace='',
-        package='sancho_interaction_audio',
+        package='sancho_audio',
         executable='audio_player',
         name=audio_node_name,
         output='screen',
@@ -23,7 +23,7 @@ def generate_launch_description():
     )
     microphone_publisher_node = Node(
         namespace='',
-        package='sancho_interaction_audio',
+        package='sancho_audio',
         executable='microphone_capturer',
         name='microphone_publisher',
         output='screen',
@@ -32,7 +32,7 @@ def generate_launch_description():
     )
     vad_node = Node(
         namespace='',
-        package='sancho_interaction_audio',
+        package='sancho_audio',
         executable='voice_activity_detector',
         name='vad_node',
         output='screen',
@@ -41,7 +41,7 @@ def generate_launch_description():
     )
     sound_direction_node = Node(
         namespace='',
-        package='sancho_interaction_audio',
+        package='sancho_audio',
         executable='audio_direction',
         name='sound_direction_node',
         output='screen',

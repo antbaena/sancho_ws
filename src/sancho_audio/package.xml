@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>sancho_interaction_audio</name>
+  <name>sancho_audio</name>
   <version>0.0.0</version>
   <description>TODO: Package description</description>
   <maintainer email="antoniocanetebaena1234@gmail.com">mapir</maintainer>
