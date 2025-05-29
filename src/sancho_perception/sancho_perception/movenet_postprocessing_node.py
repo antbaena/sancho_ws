@@ -3,7 +3,6 @@
 
 import rclpy
 from rclpy.lifecycle import LifecycleNode, LifecycleState, TransitionCallbackReturn
-from rclpy.lifecycle import LifecyclePublisher
 
 from sensor_msgs.msg import Image, CameraInfo
 from sancho_msgs.msg import PersonsPoses, PersonPose
@@ -11,7 +10,7 @@ from cv_bridge import CvBridge, CvBridgeError
 import numpy as np
 import message_filters
 from people_msgs.msg import People, Person
-from geometry_msgs.msg import Vector3, PoseArray, Pose, Quaternion
+from geometry_msgs.msg import PoseArray, Pose, Quaternion
 import random
 random.seed(42)
 # Opcional: semilla para reproducibilidad

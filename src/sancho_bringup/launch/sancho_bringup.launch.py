@@ -14,7 +14,7 @@ def generate_launch_description():
     usb_cam_param_file = os.path.join(
         get_package_share_directory('sancho_bringup'),
         'config',
-        'params_mid.yaml'   # <-- Asegúrate de crear este archivo
+        'params_mid.yaml'   
     )
 
     # Lanzar LiDAR Hokuyo
@@ -24,22 +24,7 @@ def generate_launch_description():
         )
     )
 
-    # Lanzar cámara Orbbec Gemini 330
-    orbbec_camera_launch = GroupAction([
-        PushRosNamespace('gemini_camera'),
-        IncludeLaunchDescription(
-            PythonLaunchDescriptionSource(
-                os.path.join(get_package_share_directory('orbbec_camera'), 'launch', 'gemini_330_series.launch.py')
-            ),
-            launch_arguments={
-                'camera_name': 'gemini_cam',
-                'serial_number': 'AARX3410080',
-                'usb_port': '2-1',
-                'device_num': '1',
-                'sync_mode': 'standalone'
-            }.items()
-        )
-    ])
+
 
     # Lanzar cámara Astra
     astra_camera_launch = GroupAction([
@@ -142,14 +127,10 @@ def generate_launch_description():
         ),
 
         # Base móvil y sensores
-         ranger_launch,
-         hokuyo_launch,
-          astra_camera_launch,
-        #  orbbec_camera_launch,
-         scan_merger_node,
-
-        # NUEVO: Nodo de la cámara USB
-         usb_cam_node,
-        # NUEVO: Nodo de la cámara USB (procesamiento de imagen)
-         image_proc_node
+        ranger_launch,
+        hokuyo_launch,
+        astra_camera_launch,
+        scan_merger_node,
+        usb_cam_node,
+        image_proc_node
     ])

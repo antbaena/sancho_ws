@@ -1,21 +1,26 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""
+Nodo de inferencia con MoveNet que procesa imágenes, detecta poses humanas,
+publica detecciones, Tiempo de inferencia y marcadores en CV y RViz.
+"""
+import time
+from typing import List, Optional, Dict
 
+import cv2
+import numpy as np
 import rclpy
-from rclpy.node import Node
-from sensor_msgs.msg import Image
-from sancho_msgs.msg import PersonsPoses, PersonPose
+import tf2_ros
 from cv_bridge import CvBridge, CvBridgeError
-import cv2 as cv
-from visualization_msgs.msg import Marker, MarkerArray
+from sensor_msgs.msg import Image
+from std_msgs.msg import Float32
+from visualization_msgs.msg import MarkerArray
 from rcl_interfaces.msg import SetParametersResult
 from rclpy.lifecycle import LifecycleNode, LifecycleState, TransitionCallbackReturn
-from rclpy.lifecycle import LifecyclePublisher
-import bondpy  
+from rclpy.qos import QoSProfile
 
+from sancho_msgs.msg import PersonsPoses, PersonPose
 from .movenet_utils import load_model, run_inference_on_image, process_detections
-import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
 
 class MoveNetInferenceNode(LifecycleNode):
@@ -23,200 +28,262 @@ class MoveNetInferenceNode(LifecycleNode):
         super().__init__('movenet_inference_node')
         self.get_logger().info("Iniciando nodo de inferencia MoveNet...")
         self.bridge = CvBridge()
-        self.detections_pub = None
-        self.marker_pub = None
+
+        # Parámetros de inferencia
+        self.declare_parameter('inference.mirror', False)
+        self.declare_parameter('inference.input_size', 256)
+        self.declare_parameter('inference.model_url',
+                               'https://tfhub.dev/google/movenet/multipose/lightning/1')
+        self.declare_parameter('inference.keypoint_score_threshold', 0.4)
+        self.declare_parameter('inference.min_keypoints', 9)
+        # Rendimiento
+        self.declare_parameter('performance.frame_skip', 1)
+        # Visualización en CV
+        self.declare_parameter('viz.visualize_markers', True)
+        self.declare_parameter('viz.image_topic', 'astra_camera/camera/color/image_raw')
+        self.declare_parameter('viz.cv_color', [0, 255, 0])
+        self.declare_parameter('viz.text_color', [255, 0, 0])
+
+        # Debug avanzado
+        self.declare_parameter('debug.enable_video', False)
+        self.declare_parameter('debug.video_path', '/tmp/movenet_debug.avi')
+
+        # Recursos
         self.image_sub = None
+        self.detections_pub = None
+        self.cv_marker_pub = None
+        self.rviz_marker_pub = None
+        self.inf_time_pub = None
+        self.model = None
+        self.debug_writer = None
+        self.frame_count = 0
 
     def on_configure(self, state: LifecycleState) -> TransitionCallbackReturn:
         self.get_logger().info("Configurando nodo...")
-        # Declarar parámetros configurables con valores predeterminados
-        self.declare_parameter('mirror', False)
-        self.declare_parameter('input_size', 256)
-        self.declare_parameter('keypoint_score_threshold', 0.4)
-        self.declare_parameter('min_keypoints', 9)
-        self.declare_parameter('model_url', "https://tfhub.dev/google/movenet/multipose/lightning/1")
-        self.declare_parameter('visualize_markers', True)
-        self.declare_parameter('image_topic', 'astra_camera/camera/color/image_raw')
-        self.declare_parameter('debug', False)
+        
 
-        # Obtener los parámetros iniciales
-        self.mirror = self.get_parameter('mirror').value
-        self.input_size = self.get_parameter('input_size').value
-        self.keypoint_score_threshold = self.get_parameter('keypoint_score_threshold').value
-        self.min_keypoints = self.get_parameter('min_keypoints').value
-        self.model_url = self.get_parameter('model_url').value
-        self.visualize_markers = self.get_parameter('visualize_markers').value
-        self.image_topic = self.get_parameter('image_topic').value
-        self.debug = self.get_parameter('debug').value
+        # Obtener parámetros
+        self.inference: Dict[str, any] = {
+            'mirror': self.get_parameter('inference.mirror').value,
+            'input_size': int(self.get_parameter('inference.input_size').value),
+            'model_url': self.get_parameter('inference.model_url').value,
+            'keypoint_score_threshold': float(
+                self.get_parameter('inference.keypoint_score_threshold').value
+            ),
+            'min_keypoints': int(self.get_parameter('inference.min_keypoints').value),
+        }
+        self.frame_skip = int(self.get_parameter('performance.frame_skip').value)
+        self.viz_cv: Dict[str, any] = {
+            'visualize_markers': self.get_parameter('viz.visualize_markers').value,
+            'image_topic': self.get_parameter('viz.image_topic').value,
+            'cv_color': tuple(self.get_parameter('viz.cv_color').value),
+            'text_color': tuple(self.get_parameter('viz.text_color').value),
+        }
 
-        # Callback para actualizar parámetros dinámicamente
-        self.add_on_set_parameters_callback(self.parameter_update_callback)
+        self.debug_opts: Dict[str, any] = {
+            'enable_video': self.get_parameter('debug.enable_video').value,
+            'video_path': self.get_parameter('debug.video_path').value,
+        }
 
-        # Cargar modelo MoveNet
-        self.get_logger().info("Cargando modelo MoveNet...")
+        # Cargar modelo
         try:
-            self.model = load_model(self.model_url)
-            self.get_logger().info("Modelo cargado exitosamente.")
-        except Exception as e:
-            self.get_logger().error(f"Error al cargar el modelo: {e}")
+            self.model = load_model(self.inference['model_url'])
+            self.get_logger().info("Modelo MoveNet cargado.")
+        except (OSError, RuntimeError) as e:
+            self.get_logger().error(f"Error al cargar modelo: {e}")
             return TransitionCallbackReturn.FAILURE
 
+        # Publicadores
+        self.detections_pub = self.create_lifecycle_publisher(
+            PersonsPoses, '/movenet/raw_detections', 10
+        )
+        if self.viz_cv['visualize_markers']:
+            self.cv_marker_pub = self.create_lifecycle_publisher(
+                Image, self.viz_cv['image_topic'] + '/markers', 10
+            )
+        self.rviz_marker_pub = self.create_lifecycle_publisher(
+            MarkerArray, '/movenet/markers_rviz', 10
+        )
+        self.inf_time_pub = self.create_lifecycle_publisher(
+            Float32, '/movenet/inference_time', 10
+        )
 
-        # Publicador para las detecciones "raw"
-        self.detections_pub = self.create_lifecycle_publisher(PersonsPoses, '/movenet/raw_detections', 10)
+        # Debug: VideoWriter
+        if self.debug_opts['enable_video']:
+            width = height = self.inference['input_size']
+            fourcc = cv2.VideoWriter_fourcc(*'XVID')
+            self.debug_writer = cv2.VideoWriter(
+                self.debug_opts['video_path'], fourcc, 20.0, (width, height)
+            )
 
-        # Publicador para la visualización de marcadores, si está habilitado
-        if self.visualize_markers:
-            self.marker_pub = self.create_lifecycle_publisher(Image, self.image_topic + "/markers", 10)
+        # TF2 listener
+        self.tf_buffer = tf2_ros.Buffer()
+        self.tf_listener = tf2_ros.TransformListener(self.tf_buffer, self)
 
-        
-        return TransitionCallbackReturn.SUCCESS
+        # Callback de parámetros dinámicos
+        self.add_on_set_parameters_callback(self.parameter_update_callback)
 
-    
+        return super().on_configure(state)
+
     def on_activate(self, state: LifecycleState) -> TransitionCallbackReturn:
-        self.get_logger().info("Activando nodo...")
-        self.image_sub = self.create_subscription(Image, self.image_topic, self.image_callback, 10)
+        self.get_logger().info("Activando nodo: suscribiendo a imágenes...")
+        qos = QoSProfile(depth=1)
+        self.image_sub = self.create_subscription(
+            Image, self.viz_cv['image_topic'], self.image_callback, qos
+        )
         return super().on_activate(state)
 
     def on_deactivate(self, state: LifecycleState) -> TransitionCallbackReturn:
-        self.get_logger().info("Desactivando nodo...")
+        self.get_logger().info("Desactivando nodo: cancelando suscripción de imágenes...")
+        if self.image_sub:
+            self.destroy_subscription(self.image_sub)
+            self.image_sub = None
         return super().on_deactivate(state)
-    
+
     def on_cleanup(self, state: LifecycleState) -> TransitionCallbackReturn:
-        self.get_logger().info("Limpiando nodo...")
-        self.destroy_lifecycle_publisher(self.detections_pub)
-        self.destroy_lifecycle_publisher(self.marker_pub)
-        self.destroy_subscription(self.image_sub)
+        self.get_logger().info("Limpiando nodo: destruyendo pubs y recursos...")
+        if self.detections_pub:
+            self.destroy_lifecycle_publisher(self.detections_pub)
+            self.detections_pub = None
+        if self.cv_marker_pub:
+            self.destroy_lifecycle_publisher(self.cv_marker_pub)
+            self.cv_marker_pub = None
+        if self.rviz_marker_pub:
+            self.destroy_lifecycle_publisher(self.rviz_marker_pub)
+            self.rviz_marker_pub = None
+        if self.inf_time_pub:
+            self.destroy_lifecycle_publisher(self.inf_time_pub)
+            self.inf_time_pub = None
+        if self.debug_writer:
+            self.debug_writer.release()
+            self.debug_writer = None
         return super().on_cleanup(state)
 
     def on_shutdown(self, state: LifecycleState) -> TransitionCallbackReturn:
-        self.get_logger().info("Apagando nodo...")
-        self.destroy_lifecycle_publisher(self.detections_pub)
-        self.destroy_lifecycle_publisher(self.marker_pub)
-        self.destroy_subscription(self.image_sub)
-        return super().on_shutdown(state)
-    
-    def on_error(self, state: LifecycleState) -> TransitionCallbackReturn:
-        self.get_logger().error("Nodo en estado de error.")
-        return super().on_error(state)
+        # Mismos recursos que cleanup
+        return self.on_cleanup(state)
 
-    def parameter_update_callback(self, params):
-        """
-        Callback para manejar cambios dinámicos en los parámetros.
-        Permite ajustar la configuración sin reiniciar el nodo.
-        """
-        for param in params:
-            if param.name == 'mirror':
-                self.mirror = param.value
-                self.get_logger().info(f"Parámetro 'mirror' actualizado: {self.mirror}")
-            elif param.name == 'input_size':
-                self.input_size = param.value
-                self.get_logger().info(f"Parámetro 'input_size' actualizado: {self.input_size}")
-            elif param.name == 'keypoint_score_threshold':
-                self.keypoint_score_threshold = param.value
-                self.get_logger().info(f"Parámetro 'keypoint_score_threshold' actualizado: {self.keypoint_score_threshold}")
-            elif param.name == 'min_keypoints':
-                self.min_keypoints = param.value
-                self.get_logger().info(f"Parámetro 'min_keypoints' actualizado: {self.min_keypoints}")
-            elif param.name == 'model_url':
-                # Actualizar el modelo en tiempo de ejecución (puede ser costoso)
-                self.model_url = param.value
-                self.get_logger().info(f"Parámetro 'model_url' actualizado: {self.model_url}")
+    def parameter_update_callback(self, params):  # -> SetParametersResult
+        successful = True
+        for p in params:
+            name = p.name
+            if name.startswith('inference.') and name in [
+                'inference.mirror', 'inference.keypoint_score_threshold', 'inference.min_keypoints'
+            ]:
+                self.inference[name.split('.', 1)[1]] = p.value
+                self.get_logger().info(f"Parametro {name} actualizado: {p.value}")
+            elif name == 'inference.model_url':
+                # recarga de modelo en caliente
+                new_url = p.value
                 try:
-                    self.model = load_model(self.model_url)
-                    self.get_logger().info("Modelo actualizado exitosamente.")
+                    model = load_model(new_url)
+                    self.model = model
+                    self.inference['model_url'] = new_url
+                    self.get_logger().info("Modelo recargado.")
                 except Exception as e:
-                    self.get_logger().error(f"Error al actualizar el modelo: {e}")
-            elif param.name == 'visualize_markers':
-                self.visualize_markers = param.value
-                self.get_logger().info(f"Parámetro 'visualize_markers' actualizado: {self.visualize_markers}")
-            elif param.name == 'image_topic':
-                self.image_topic = param.value
-                self.get_logger().info(f"Parámetro 'image_topic' actualizado: {self.image_topic}")
-            elif param.name == 'debug':
-                self.debug = param.value
-                self.get_logger().info(f"Parámetro 'debug' actualizado: {self.debug}")
-        return SetParametersResult(successful=True)
+                    self.get_logger().error(f"Fallo recarga modelo: {e}")
+                    successful = False
+            elif name.startswith('viz.') and name in [
+                'viz.visualize_markers'
+            ]:
+                self.viz_cv['visualize_markers'] = p.value
+                self.get_logger().info(f"Parametro {name} actualizado: {p.value}")
+            else:
+                # Parámetros que requieren reinicio
+                self.get_logger().warn(f"Parametro {name} requiere reinicio para aplicar.")
+                successful = False
+        return SetParametersResult(successful=successful)
 
-    def image_callback(self, color_msg):
-        """
-        Callback para procesar cada frame de imagen, ejecutar la inferencia con MoveNet,
-        y publicar tanto las detecciones como la visualización de marcadores.
-        """
+    def preprocess_image(self, msg: Image) -> Optional[np.ndarray]:
         try:
-            color_image = self.bridge.imgmsg_to_cv2(color_msg, desired_encoding='bgr8')
+            cv_img = self.bridge.imgmsg_to_cv2(msg, 'bgr8')
         except CvBridgeError as e:
-            self.get_logger().error(f"Error al convertir imagen: {e}")
+            self.get_logger().error(f"CvBridge error: {e}")
+            return None
+        if self.inference['mirror']:
+            cv_img = cv2.flip(cv_img, 1)
+        return cv_img
+
+    def infer(self, image: np.ndarray) -> List:
+        # Ejecuta inferencia y devuelve lista de (keypoints, scores)
+        keypoints_list, scores_list = run_inference_on_image(
+            image, self.inference['input_size'], self.model
+        )
+        return process_detections(
+            keypoints_list, scores_list,
+            self.inference['keypoint_score_threshold'],
+            self.inference['min_keypoints']
+        )
+
+    def draw_markers(self, image: np.ndarray, detections: List) -> np.ndarray:
+        # Dibuja círculos y textos en la imagen
+        for i, (kpts, scores) in enumerate(detections):
+            for idx, (x, y) in enumerate(kpts):
+                if scores[idx] >= self.inference['keypoint_score_threshold']:
+                    cv2.circle(image, (int(x), int(y)), 4,
+                               self.viz_cv['cv_color'], -1)
+                    cv2.putText(image, str(idx), (int(x)+5, int(y)-5),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.4,
+                                self.viz_cv['text_color'], 1)
+        return image
+
+
+    def image_callback(self, msg: Image) -> None:
+        # Control de tasa de procesamiento
+        self.frame_count = (self.frame_count + 1) % self.frame_skip
+        if self.frame_count != 0:
             return
-
-        if self.mirror:
-            color_image = cv.flip(color_image, 1)
-
-        # Ejecutar la inferencia MoveNet
+        # Preprocesado
+        img = self.preprocess_image(msg)
+        if img is None:
+            return
+        # Inferencia y tiempo
+        start = time.perf_counter()
         try:
-            keypoints_list, scores_list = run_inference_on_image(color_image, self.input_size, self.model)
+            detections = self.infer(img)
         except Exception as e:
-            self.get_logger().error(f"Error durante la inferencia: {e}")
+            self.get_logger().error(f"Error en inferencia: {e}")
             return
-
-        # Procesar las detecciones obtenidas
-        valid_detections = process_detections(keypoints_list, scores_list,
-                                              self.keypoint_score_threshold, self.min_keypoints)
-
-        detections_msg = PersonsPoses()
-        detections_msg.header = color_msg.header
-
-        # Si se habilita la visualización, se utiliza una copia de la imagen para dibujar
-        if self.visualize_markers:
-            vis_image = color_image.copy()
-
-        for person_id, (keypoints, scores) in enumerate(valid_detections):
+        duration = (time.perf_counter() - start) * 1000.0
+        # Publicar tiempo de inferencia
+        self.inf_time_pub.publish(Float32(data=duration))
+        # Construir mensaje de PersonsPoses
+        pp_msg = PersonsPoses()
+        pp_msg.header = msg.header
+        for pid, (kpts, scores) in enumerate(detections):
             person = PersonPose()
-            person.header = color_msg.header
-            person.id = person_id
-            # Aplanar la lista de keypoints (cada punto se convierte en dos valores: x, y)
-            person.keypoints = [float(coord) for point in keypoints for coord in point]
+            person.header = msg.header
+            person.id = pid
+            person.keypoints = [float(c) for p in kpts for c in p]
             person.scores = [float(s) for s in scores]
-            # Valores por defecto para keypoints3d y avg_depth
-            person.keypoints3d = [0.0] * 51
+            person.keypoints3d = [0.0] * (len(kpts) * 3)
             person.avg_depth = 0.0
-            detections_msg.persons.append(person)
-
-            # Dibujar los marcadores en la imagen para visualización
-            if self.visualize_markers:
-                for i, point in enumerate(keypoints):
-                    x, y = int(point[0]), int(point[1])
-                    if scores[i] >= self.keypoint_score_threshold:
-                        cv.circle(vis_image, (x, y), 5, (0, 255, 0), -1)
-                        cv.putText(vis_image, str(i), (x + 5, y - 5),
-                                   cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
-
-        # Publicar el mensaje de detecciones
-        self.detections_pub.publish(detections_msg)
-        if self.debug:
-            self.get_logger().debug(f"Detecciones publicadas: {len(valid_detections)}")
-
-        # Publicar la imagen con los marcadores, si corresponde
-        if self.visualize_markers:
+            pp_msg.persons.append(person)
+        self.detections_pub.publish(pp_msg)
+        # Debug: histograma
+        if self.get_parameter('debug.enable_video').value:
+            self.debug_writer.write(img)
+        # Visualización CV
+        if self.viz_cv['visualize_markers'] and self.cv_marker_pub:
+            vis = img.copy()
+            vis = self.draw_markers(vis, detections)
             try:
-                vis_msg = self.bridge.cv2_to_imgmsg(vis_image, encoding="bgr8")
-                vis_msg.header = color_msg.header
-                self.marker_pub.publish(vis_msg)
+                out_msg = self.bridge.cv2_to_imgmsg(vis, 'bgr8')
+                out_msg.header = msg.header
+                self.cv_marker_pub.publish(out_msg)
             except CvBridgeError as e:
-                self.get_logger().error(f"Error al convertir imagen para visualización: {e}")
+                self.get_logger().error(f"CvBridge salida error: {e}")
 
-def main(args=None):
+
+
+def main(args=None) -> None:
     rclpy.init(args=args)
-
-    # Creamos el nodo de ciclo de vida
     node = MoveNetInferenceNode()
-
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
         pass
     finally:
-        # Limpieza
         node.destroy_node()
         rclpy.shutdown()
 

@@ -1,291 +1,267 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""
+Nodo de detección de grupos robusto con múltiples filtros temporales y espaciales.
+"""
+from typing import Optional, Tuple, Set, Deque, Dict
+from collections import deque, defaultdict
 
 import numpy as np
 import rclpy
-from geometry_msgs.msg import Point, PoseArray, PoseStamped, Quaternion
 from rclpy.duration import Duration
-from rclpy.lifecycle import (LifecycleNode, LifecycleState,
-                             TransitionCallbackReturn)
+from rclpy.lifecycle import LifecycleNode, LifecycleState, TransitionCallbackReturn
 from rclpy.qos import QoSProfile
+from geometry_msgs.msg import Point, PoseArray, Quaternion
+from visualization_msgs.msg import Marker, MarkerArray
 from sklearn.cluster import DBSCAN
-from visualization_msgs.msg import Marker
+from sklearn.metrics import silhouette_score
 
 from sancho_msgs.msg import GroupInfo
+
+
+def bounding_box_area(points: np.ndarray) -> float:
+    """Área del rectángulo mínimo que engloba los puntos."""
+    min_xy = points.min(axis=0)
+    max_xy = points.max(axis=0)
+    return float(np.prod(max_xy - min_xy))
 
 
 class GroupDetectionNode(LifecycleNode):
     def __init__(self):
         super().__init__("group_detection_lifecycle")
-        self.get_logger().info(
-            "Inicializando nodo de detección de grupos con Lifecycle..."
-        )
+        self.get_logger().info("Inicializando nodo de detección de grupos...")
 
-        # Declaración de parámetros
-        self.declare_parameter("group_distance_threshold", 1.0)
-        self.declare_parameter("min_group_duration", 3.0)
-        self.declare_parameter("group_centroid_tolerance", 0.5)
-        self.declare_parameter("check_period", 0.5)
-        self.declare_parameter("group_topic", "/detected_group")
-        self.declare_parameter("persons_topic", "/human_pose/persons_poses")
-        self.declare_parameter("dbscan_min_samples", 2)
-        self.declare_parameter("detection_timeout", 2.0)
-        self.declare_parameter("message_timeout", 2.0)
+        # Parámetros
+        params = [
+            ("group_distance_threshold", 1.0),
+            ("min_group_duration", 3.0),
+            ("group_centroid_tolerance", 0.5),
+            ("check_period", 0.5),
+            ("dbscan_min_samples", 2),
+            ("detection_timeout", 2.0),
+            ("message_timeout", 2.0),
+            ("silhouette_threshold", 0.3),
+            ("grace_period", 1.0),
+            ("min_group_radius", 0.2),
+            ("cluster_history_size", 10),
+            ("cluster_history_required", 5),
+        ]
+        for name, default in params:
+            self.declare_parameter(name, default)
 
-        # Variables internas
+        # Recursos internos
         self.group_pub = None
         self.marker_pub = None
         self.persons_sub = None
         self.timer = None
 
-        self.current_group_centroid = None
-        self.current_group_radius = None
-        self.group_start_time = None
-        self.last_detection_time = None
-        self.last_msg_timestamp = None
-        self.group_active = False
+        # Estado de detección
+        self.cluster_history: Deque[Tuple[np.ndarray, Set[int]]] = deque()
+        self.track_history: Dict[int, Deque[Tuple[np.ndarray, rclpy.time.Time]]] = defaultdict(lambda: deque(maxlen=2))
+        self.current_detected = False
+        self.group_start_time: Optional[rclpy.time.Time] = None
+        self.last_detection_time: Optional[rclpy.time.Time] = None
+        self.last_msg_ts: Optional[rclpy.time.Time] = None
+        self.absence_start: Optional[rclpy.time.Time] = None
 
     def on_configure(self, state: LifecycleState) -> TransitionCallbackReturn:
         self.get_logger().info("Configurando nodo...")
-
-        self.group_distance_threshold = self.get_parameter(
-            "group_distance_threshold"
-        ).value
+        # Leer parámetros
+        self.group_distance_threshold = self.get_parameter("group_distance_threshold").value
         self.min_group_duration = self.get_parameter("min_group_duration").value
-        self.group_centroid_tolerance = self.get_parameter(
-            "group_centroid_tolerance"
-        ).value
+        self.group_centroid_tolerance = self.get_parameter("group_centroid_tolerance").value
         self.check_period = self.get_parameter("check_period").value
-        self.group_topic = self.get_parameter("group_topic").value
-        self.persons_topic = self.get_parameter("persons_topic").value
         self.dbscan_min_samples = self.get_parameter("dbscan_min_samples").value
         self.detection_timeout = self.get_parameter("detection_timeout").value
         self.message_timeout = self.get_parameter("message_timeout").value
+        self.silhouette_threshold = self.get_parameter("silhouette_threshold").value
+        self.grace_period = self.get_parameter("grace_period").value
+        self.min_group_radius = self.get_parameter("min_group_radius").value
+        self.cluster_history_size = self.get_parameter("cluster_history_size").value
+        self.cluster_history_required = self.get_parameter("cluster_history_required").value
 
-        self.group_pub = self.create_lifecycle_publisher(
-            GroupInfo, self.group_topic, 10
-        )
-        self.marker_pub = self.create_lifecycle_publisher(Marker, "/group_marker", 10)
-        self.timer = self.create_timer(self.check_period, self.timer_callback)
-        self.timer.cancel()
-
+        self.group_pub = self.create_lifecycle_publisher(GroupInfo, "/detected_group", 10)
+        self.marker_pub = self.create_lifecycle_publisher(MarkerArray, "/group_marker_array", 10)
         return super().on_configure(state)
 
     def on_activate(self, state: LifecycleState) -> TransitionCallbackReturn:
         self.get_logger().info("Activando nodo...")
-
         qos = QoSProfile(depth=10)
-
-        self.persons_sub = self.create_subscription(
-            PoseArray, self.persons_topic, self.poses_callback, qos
-        )
-        self.timer.reset()  # Reiniciar el timer para el chequeo de persistencia
-
+        self.persons_sub = self.create_subscription(PoseArray, "/human_pose/persons_poses",
+                                                   self.poses_callback, qos)
+        self.timer = self.create_timer(self.check_period, self.timer_callback)
         return super().on_activate(state)
 
     def on_deactivate(self, state: LifecycleState) -> TransitionCallbackReturn:
         self.get_logger().info("Desactivando nodo...")
-
-        self.timer.cancel()
-        self.timer = None
-
-        self.destroy_subscription(self.persons_sub)
-        self.persons_sub = None
-
+        if self.timer: self.timer.cancel()
+        if self.persons_sub: self.destroy_subscription(self.persons_sub)
         return super().on_deactivate(state)
 
     def on_cleanup(self, state: LifecycleState) -> TransitionCallbackReturn:
-        self.get_logger().info("Limpiando recursos del nodo...")
-
-        self.destroy_timer(self.timer)
-        self.timer = None
-
-        self.destroy_publisher(self.group_pub)
-        self.group_pub = None
-
-        self.destroy_publisher(self.marker_pub)
-        self.marker_pub = None
-
-        self.destroy_subscription(self.persons_sub)
-        self.persons_sub = None
-
-        self.reset_group_detection()
-
+        self.get_logger().info("Limpiando recursos...")
+        if self.timer: self.destroy_timer(self.timer)
+        if self.group_pub: self.destroy_lifecycle_publisher(self.group_pub)
+        if self.marker_pub: self.destroy_lifecycle_publisher(self.marker_pub)
+        if self.persons_sub: self.destroy_subscription(self.persons_sub)
         return super().on_cleanup(state)
 
-    def on_shutdown(self, state: LifecycleState) -> TransitionCallbackReturn:
-        self.get_logger().info("Apagando nodo...")
+    def _check_message_gap(self, now: rclpy.time.Time) -> None:
+        if self.last_msg_ts is None: return
+        gap = (now - self.last_msg_ts).nanoseconds / 1e9
+        if gap > self.message_timeout:
+            self.get_logger().info(f"Gap de {gap:.2f}s sin mensajes, reset.")
+            self.reset()
 
-        self.destroy_timer(self.timer)
-        self.timer = None
-
-        self.destroy_publisher(self.group_pub)
-        self.group_pub = None
-
-        self.destroy_publisher(self.marker_pub)
-        self.marker_pub = None
-
-        self.destroy_subscription(self.persons_sub)
-        self.persons_sub = None
-        return super().on_shutdown(state)
-
-    def on_error(self, state: LifecycleState) -> TransitionCallbackReturn:
-        self.get_logger().error(
-            "Ha ocurrido un error. Nodo pasando a estado de error..."
-        )
-        self.reset_group_detection()
-        return super().on_error(state)
-
-    def poses_callback(self, msg: PoseArray):
-        current_timestamp = msg.header.stamp
-        current_time = rclpy.time.Time.from_msg(current_timestamp)
-
-        if self.last_msg_timestamp is not None:
-            last_time = rclpy.time.Time.from_msg(self.last_msg_timestamp)
-            gap = (current_time - last_time).nanoseconds / 1e9
-            if gap > self.message_timeout:
-                self.get_logger().info(
-                    f"Gap de {gap:.2f} s entre mensajes. Reiniciando seguimiento."
-                )
-                self.reset_group_detection()
-
-        self.last_msg_timestamp = current_timestamp
+    def poses_callback(self, msg: PoseArray) -> None:
+        now = rclpy.time.Time.from_msg(msg.header.stamp)
+        self._check_message_gap(now)
+        self.last_msg_ts = now
 
         poses = msg.poses
         if len(poses) < 2:
-            self.reset_group_detection()
+            self.reset()
             return
 
+        points = np.array([[p.position.x, p.position.y] for p in poses])
         try:
-            points = np.array([[pose.position.x, pose.position.y] for pose in poses])
-            if np.any(np.isnan(points)) or np.any(np.isinf(points)):
-                self.get_logger().warn(
-                    "Datos inválidos en posiciones. Reiniciando seguimiento."
-                )
-                self.reset_group_detection()
-                return
+            ids = list(msg.track_ids)
+        except AttributeError:
+            ids = list(range(len(poses)))
 
-            clustering = DBSCAN(
-                eps=self.group_distance_threshold, min_samples=self.dbscan_min_samples
-            ).fit(points)
+        valid = []
+        for i, pid in enumerate(ids):
+            self.track_history[pid].append((points[i], now))
+            if len(self.track_history[pid]) == 2:
+                valid.append(pid)
+        speeds = []
+        for pid in valid:
+            p0, t0 = self.track_history[pid][0]
+            p1, t1 = self.track_history[pid][1]
+            dt = (t1 - t0).nanoseconds / 1e9
+            if dt > 0:
+                speeds.append(np.linalg.norm(p1 - p0) / dt)
+        if speeds and np.std(speeds) > self.group_distance_threshold:
+            self.get_logger().debug("Alta varianza de velocidades, descartando.")
+            self.reset()
+            return
 
+        mask = np.isfinite(points).all(axis=1)
+        points = points[mask]
+        ids = [ids[i] for i, m in enumerate(mask) if m]
+
+        area = bounding_box_area(points)
+        density = len(points) / max(area, 1e-3)
+        eps = self.group_distance_threshold * (1 + 0.5 * (density - 1))
+        try:
+            labels = DBSCAN(eps=eps, min_samples=self.dbscan_min_samples).fit_predict(points)
         except Exception as e:
-            self.get_logger().error(f"Error en DBSCAN: {e}")
-            self.reset_group_detection()
+            self.get_logger().error(f"DBSCAN error: {e}")
+            self.reset()
             return
 
-        labels = clustering.labels_
-        unique_labels = set(labels)
-        if -1 in unique_labels:
-            unique_labels.discard(-1)
+        unique = set(labels) - {-1}
+        if not unique:
+            if self.absence_start is None:
+                self.absence_start = now
+            elif (now - self.absence_start).nanoseconds/1e9 > self.grace_period:
+                self.reset()
+            return
+        self.absence_start = None
 
-        if not unique_labels:
-            self.reset_group_detection()
+        best_label = max(unique, key=lambda l: np.sum(labels == l))
+        member_idx = np.where(labels == best_label)[0]
+        member_ids = {ids[i] for i in member_idx}
+        pts = points[labels == best_label]
+        cen = pts.mean(axis=0)
+        rad = float(np.linalg.norm(pts - cen, axis=1).max())
+
+        if rad < self.min_group_radius:
+            self.get_logger().debug("Radio de cluster muy pequeño.")
+            self.reset()
             return
 
-        best_cluster = max(unique_labels, key=lambda l: np.sum(labels == l))
-        cluster_points = points[labels == best_cluster]
-        centroid = np.mean(cluster_points, axis=0)
-        distances = np.linalg.norm(cluster_points - centroid, axis=1)
-        radius = float(np.max(distances))
+        # Calidad de cluster: solo si hay al menos 2 clusters válidos
+        if len(points) >= 3:
+            valid_clusters = set(labels) - {-1}
+            if len(valid_clusters) > 1:
+                try:
+                    score = silhouette_score(points, labels)
+                except ValueError as e:
+                    self.get_logger().debug(f"Silhouette score error: {e}")
+                else:
+                    if score < self.silhouette_threshold:
+                        self.get_logger().debug(f"Silhouette bajo ({score:.2f}).")
+                        self.reset()
+                        return
 
-        if self.current_group_centroid is None:
-            self.current_group_centroid = centroid
-            self.current_group_radius = radius
-            self.group_start_time = current_time
-            self.group_active = False
-            self.get_logger().info(
-                f"Nuevo grupo detectado: centroide {centroid}, radio {radius:.2f}"
-            )
-        else:
-            dist = np.linalg.norm(centroid - self.current_group_centroid)
-            if dist < self.group_centroid_tolerance:
-                self.current_group_centroid = 0.5 * (
-                    self.current_group_centroid + centroid
-                )
-                self.current_group_radius = 0.5 * (self.current_group_radius + radius)
-            else:
-                self.get_logger().info(
-                    f"Grupo diferente detectado (distancia {dist:.2f} m). Reiniciando seguimiento."
-                )
-                self.current_group_centroid = centroid
-                self.current_group_radius = radius
-                self.group_start_time = current_time
-                self.group_active = False
+        # Historial de clusters
+        self.cluster_history.append((cen, member_ids))
+        if len(self.cluster_history) > self.cluster_history_size:
+            self.cluster_history.popleft()
+        stable = sum(
+            np.linalg.norm(prev_cen - cen) < self.group_centroid_tolerance
+            for prev_cen, _ in self.cluster_history
+        )
+        if stable < self.cluster_history_required:
+            self.get_logger().debug(f"Cluster no suficientemente estable ({stable}).")
+            return
 
-        elapsed = (current_time - self.group_start_time).nanoseconds / 1e9
-        if elapsed >= self.min_group_duration and not self.group_active:
-            self.publish_group(
-                self.current_group_centroid, self.current_group_radius, current_time
-            )
-            self.group_active = True
+        if not self.current_detected:
+            self.group_start_time = now
+            self.current_detected = True
+            return
+        elapsed = (now - self.group_start_time).nanoseconds/1e9
+        if elapsed >= self.min_group_duration and not self.last_detection_time:
+            self.publish_group(cen, rad, now)
+            self.last_detection_time = now
 
-    def timer_callback(self):
+    def timer_callback(self) -> None:
         now = self.get_clock().now()
-        if self.last_detection_time is None or (
-            now - self.last_detection_time
-        ) > Duration(seconds=self.detection_timeout):
-            self.reset_group_detection()
+        if self.last_detection_time and (now - self.last_detection_time) > Duration(seconds=self.detection_timeout):
+            self.reset()
 
-    def publish_group(self, centroid, radius, timestamp):
-        if self.group_pub is None:
-            return
+    def publish_group(self, centroid: np.ndarray, radius: float, timestamp: rclpy.time.Time) -> None:
+        gm = GroupInfo()
+        gm.header.stamp = timestamp.to_msg()
+        gm.header.frame_id = "map"
+        gm.pose.position = Point(x=float(centroid[0]),
+                                 y=float(centroid[1]), z=0.0)
+        gm.pose.orientation = Quaternion(w=1.0)
+        gm.radius = radius
+        self.group_pub.publish(gm)
 
-        group_msg = GroupInfo()
-        group_msg.header.stamp = timestamp.to_msg()
-        group_msg.header.frame_id = "map"
-        group_msg.pose.position = Point(
-            x=float(centroid[0]), y=float(centroid[1]), z=0.0
-        )
-        group_msg.pose.orientation = Quaternion(x=0.0, y=0.0, z=0.0, w=1.0)
-        group_msg.radius = radius
+        ma = MarkerArray()
+        m = Marker()
+        m.header = gm.header
+        m.ns, m.id, m.type = "group", 0, Marker.SPHERE
+        m.action = Marker.ADD
+        m.pose = gm.pose
+        m.scale.x = m.scale.y = m.scale.z = radius * 2
+        m.color.r, m.color.g, m.color.b, m.color.a = 0.0, 1.0, 0.0, 0.5
+        m.lifetime = Duration(seconds=self.min_group_duration).to_msg()
+        ma.markers.append(m)
+        self.marker_pub.publish(ma)
+        self.get_logger().info(f"Publicado grupo en {centroid.tolist()} radio {radius:.2f}")
 
-        self.group_pub.publish(group_msg)
-
-        marker = Marker()
-        marker.header.stamp = timestamp.to_msg()
-        marker.header.frame_id = "map"
-        marker.ns = "group"
-        marker.id = 0
-        marker.type = Marker.SPHERE
-        marker.action = Marker.ADD
-        marker.pose.position = group_msg.pose.position
-        marker.pose.orientation = group_msg.pose.orientation
-        marker.scale.x = marker.scale.y = marker.scale.z = radius * 2
-        marker.color.a = 0.5
-        marker.color.r = 0.0
-        marker.color.g = 1.0
-        marker.color.b = 0.0
-        marker.lifetime = Duration(seconds=2.0).to_msg()
-
-        self.marker_pub.publish(marker)
-
-        self.get_logger().info(
-            f"Grupo persistente detectado. Publicando centroide {centroid.tolist()} y radio {radius:.2f}"
-        )
-
-    def reset_group_detection(self):
-        if self.current_group_centroid is not None:
-            self.get_logger().debug("Reiniciando seguimiento de grupo.")
-        self.current_group_centroid = None
-        self.current_group_radius = None
+    def reset(self) -> None:
+        self.get_logger().debug("Reset estado de detección.")
+        self.cluster_history.clear()
+        self.current_detected = False
         self.group_start_time = None
         self.last_detection_time = None
-        self.group_active = False
+        self.absence_start = None
+        self.track_history.clear()
 
 
-def main(args=None):
+def main(args=None) -> None:
     rclpy.init(args=args)
-
-    # Creamos el nodo de ciclo de vida
     node = GroupDetectionNode()
-
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
         pass
     finally:
-        # Limpieza
         node.destroy_node()
         rclpy.shutdown()
 

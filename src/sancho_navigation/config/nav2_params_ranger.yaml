@@ -520,10 +520,10 @@ local_costmap:
         people_topic: "/people"
         enabled: True
         cutoff: 10.0
-        amplitude: 255.0
+        amplitude: 100.0
         publish_occgrid: True
-        use_passing: True
-        use_vel_factor: True
+        use_passing: False
+        use_vel_factor: False
         speed_factor_multiplier: 5.0
         covariance_front_height: 0.4
         covariance_front_width: 0.25

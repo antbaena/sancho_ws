@@ -1,6 +1,7 @@
-from setuptools import find_packages, setup
 import os
 from glob import glob
+
+from setuptools import find_packages, setup
 
 package_name = 'sancho_navigation'
 
@@ -18,10 +19,10 @@ setup(
     ],
     install_requires=['setuptools'],
     zip_safe=True,
-    maintainer='mapir',
-    maintainer_email='antoniocanetebaena1234@gmail.com',
-    description='TODO: Package description',
-    license='TODO: License declaration',
+    maintainer='antbaena',
+    maintainer_email='antbaena@uma.es',
+    description='A navigation package providing nodes and resources for robotic movement and configuration.',
+    license='GPL-3.0-or-later',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [

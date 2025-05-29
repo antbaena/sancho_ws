@@ -1,4 +1,0 @@
-int16[] audio
-int32 sample_rate
----
-std_msgs/String text

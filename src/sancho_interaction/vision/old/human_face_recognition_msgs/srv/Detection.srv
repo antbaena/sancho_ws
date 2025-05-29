@@ -1,5 +1,0 @@
-sensor_msgs/Image frame
----
-human_face_recognition_msgs/FacePosition[] positions
-float32[] scores
-float32 detection_time

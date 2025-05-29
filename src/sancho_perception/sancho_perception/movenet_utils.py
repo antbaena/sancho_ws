@@ -76,7 +76,8 @@ def get_depth_value(x, y, depth_image, window_size=3):
     valid = patch[patch > 0]
     if valid.size == 0:
         return 0.0
-    return float(np.mean(valid))/1000.0  # Convertir a metros (mm -> m)
+    
+    return float(np.mean(valid)) / 1200.0  # Convertir a metros (mm -> m)
 
 def convert_2d_to_3d(u, v, depth_value, camera_info):
     """
@@ -94,7 +95,7 @@ def convert_2d_to_3d(u, v, depth_value, camera_info):
         Y = (v - cy) * depth_value / fy
         Z = depth_value
         return (X, Y, Z)
-    except Exception as e:
+    except Exception:
         return (0.0, 0.0, 0.0)
 
 def draw_skeleton(image, keypoints, scores, keypoint_score_threshold):
@@ -135,5 +136,5 @@ def annotate_depth(depth_image):
         depth_normalized = np.uint8(depth_normalized)
         depth_colored = cv.applyColorMap(depth_normalized, cv.COLORMAP_JET)
         return depth_colored
-    except Exception as e:
+    except Exception:
         return depth_image
