@@ -11,6 +11,7 @@ def generate_launch_description():
     use_sim_time = LaunchConfiguration("use_sim_time")
     autostart = LaunchConfiguration("autostart")
     use_respawn = LaunchConfiguration("use_respawn")
+    prefix_cmd = LaunchConfiguration('prefix')
 
     nav2_params_path = os.path.join(
         get_package_share_directory("sancho_navigation"),
@@ -72,6 +73,8 @@ def generate_launch_description():
                 name="map_server",
                 parameters=[nav2_params_path],
                 output="screen",
+                prefix=prefix_cmd,
+                emulate_tty=True,
                 respawn=use_respawn,
             ),
             Node(
@@ -81,6 +84,8 @@ def generate_launch_description():
                 parameters=[nav2_params_path],
                 remappings=[("/map", "/localization_map")],
                 output="screen",
+                prefix=prefix_cmd,
+                emulate_tty=True,
                 respawn=use_respawn,
             ),
             Node(
@@ -89,6 +94,8 @@ def generate_launch_description():
                 name="amcl",
                 parameters=[nav2_params_path],
                 output="screen",
+                prefix=prefix_cmd,
+                emulate_tty=True,
                 respawn=use_respawn,
             ),
             Node(
@@ -97,6 +104,8 @@ def generate_launch_description():
                 name="planner_server",
                 parameters=[nav2_params_path],
                 output="screen",
+                prefix=prefix_cmd,
+                emulate_tty=True,
                 respawn=use_respawn,
             ),
             Node(
@@ -106,6 +115,8 @@ def generate_launch_description():
                 parameters=[nav2_params_path],
                 remappings=[("cmd_vel", "cmd_vel")],
                 output="screen",
+                prefix=prefix_cmd,
+                emulate_tty=True,
                 respawn=use_respawn,
             ),
             Node(
@@ -114,6 +125,8 @@ def generate_launch_description():
                 name="bt_navigator",
                 parameters=[nav2_params_path],
                 output="screen",
+                prefix=prefix_cmd,
+                emulate_tty=True,
                 respawn=use_respawn,
             ),
             Node(
@@ -150,6 +163,11 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
+        DeclareLaunchArgument(
+            'prefix',
+            default_value='xterm -hold -e' if os.environ.get('DISPLAY') else '',
+            description='Prefijo para lanzar nodos en terminal'
+        ),
         declare_use_sim_time,
         declare_autostart,
         declare_use_respawn,
