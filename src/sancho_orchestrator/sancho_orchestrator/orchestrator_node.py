@@ -123,12 +123,7 @@ class OrchestratorNode(Node):
         self._change_node_state(
             self.group_node,
             Transition.TRANSITION_DEACTIVATE,
-            # on_done=lambda success: self._after_group_off(success, msg)
-        )
-        self._change_node_state(
-                self.social_node,
-                Transition.TRANSITION_ACTIVATE,
-                on_done=self._after_activate_social
+            on_done=lambda success: self._after_group_off(success, msg)
         )
 
     def _after_group_off(self, success, msg: PoseStamped):
