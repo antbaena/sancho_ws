@@ -203,7 +203,7 @@ class RoamingNode(Node):
         if (
             self.home is not None
             and self.success_nav_count >= self.success_nav_threshold
-            and self._distance_to(self.home) >= self.dist_home
+            and self._distance_to(self.home) >= self.max_dist_home
         ):
             self.get_logger().info("Condición alcanzada: volviendo a Home.")
             goal = NavigateToPose.Goal()
