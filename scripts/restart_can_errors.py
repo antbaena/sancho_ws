@@ -9,10 +9,10 @@ logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s %(levelname)s: %(message)s')
 
 # CAN IDs según manual
-ID_STATUS      = 0x211  # System Status Feedback :contentReference[oaicite:0]{index=0}
-ID_MOTION_FB   = 0x221  # Motion Control Feedback (e-stop bit) :contentReference[oaicite:1]{index=1}
-ID_CLEAR_ERROR = 0x423  # Clear system errors :contentReference[oaicite:2]{index=2}
-ID_SET_CMD     = 0x421  # Set Command Control Mode :contentReference[oaicite:3]{index=3}
+ID_STATUS      = 0x211  # System Status Feedback
+ID_MOTION_FB   = 0x221  # Motion Control Feedback (e-stop bit)
+ID_CLEAR_ERROR = 0x423  # Clear system errors
+ID_SET_CMD     = 0x421  # Set Command Control Mode
 
 # Mensajes CAN predefinidos
 msg_clear_error = can.Message(arbitration_id=ID_CLEAR_ERROR, data=[0x00], is_extended_id=False)
@@ -46,7 +46,7 @@ def check_emergency_released(bus):
     while True:
         msg = bus.recv(timeout=1.0)
         if msg and msg.arbitration_id == ID_MOTION_FB:
-            estop = bool(msg.data[7] & 0x80)  # bit7 = e-stop :contentReference[oaicite:4]{index=4}
+            estop = bool(msg.data[7] & 0x80)  # bit7 = e-stop
             if not estop:
                 logging.info("E-stop liberado.")
                 return
@@ -78,7 +78,7 @@ def main():
         bus,
         msg_clear_error,
         expect_id=ID_STATUS,
-        check_fn=lambda data: data[0] == 0x00,  # system normal :contentReference[oaicite:5]{index=5}
+        check_fn=lambda data: data[0] == 0x00,  # system normal
     )
 
     # 2) Volver a modo Command Control
@@ -86,7 +86,7 @@ def main():
         bus,
         msg_set_cmd,
         expect_id=ID_STATUS,
-        check_fn=lambda data: data[1] == 0x01,  # control mode = CAN command :contentReference[oaicite:6]{index=6}
+        check_fn=lambda data: data[1] == 0x01,  # control mode = CAN command
     )
 
     logging.info("Recuperación completa. El robot está en estado normal y listo para operar.")

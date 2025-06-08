@@ -224,7 +224,7 @@ class InteractionManager(LifecycleNode):
         done_evt = threading.Event()
         def _on_done(fut):
             done_evt.set()
-        future.add_done_callback(_on_done)  # no bloquea el executor :contentReference[oaicite:0]{index=0}
+        future.add_done_callback(_on_done)  # no bloquea el executor
 
         # Esperamos hasta que self o el executor procesen la respuesta
         timeout = timeout_sec or self.lifecycle_timeout
