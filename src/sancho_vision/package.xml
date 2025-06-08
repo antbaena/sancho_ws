@@ -11,6 +11,12 @@
   <depend>sensor_msgs</depend>
   <depend>cv_bridge</depend>
   <depend>std_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>sancho_msgs</depend>
+  <depend>numpy</depend>
+  <depend>mediapipe</depend>
+  <depend>dlib</depend>
+  <depend>tf_transformations</depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

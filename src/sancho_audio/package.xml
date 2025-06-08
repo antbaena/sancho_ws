@@ -7,6 +7,17 @@
   <maintainer email="antoniocanetebaena1234@gmail.com">mapir</maintainer>
   <license>TODO: License declaration</license>
 
+  <depend>rclpy</depend>
+  <depend>lifecycle_msgs</depend>
+  <depend>sancho_msgs</depend>
+  <depend>std_msgs</depend>
+  <depend>numpy</depend>
+  <depend>pyaudio</depend>
+  <depend>playsound</depend>
+  <depend>soundfile</depend>
+  <depend>pyannote.audio</depend>
+  <depend>scipy</depend>
+
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
   <test_depend>ament_pep257</test_depend>

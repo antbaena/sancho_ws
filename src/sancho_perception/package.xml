@@ -7,12 +7,19 @@
   <maintainer email="antoniocanetebaena1234@gmail.com">mapir</maintainer>
   <license>TODO: License declaration</license>
 
-  <depend>rclcpp</depend>
+  <depend>rclpy</depend>
   <depend>sensor_msgs</depend>
   <depend>geometry_msgs</depend>
   <depend>cv_bridge</depend>
   <depend>image_transport</depend>
   <depend>tf2_ros</depend>
+  <depend>numpy</depend>
+  <depend>opencv-python</depend>
+  <depend>tensorflow</depend>
+  <depend>tensorflow_hub</depend>
+  <depend>scikit-learn</depend>
+  <depend>tf_transformations</depend>
+  <depend>message_filters</depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
