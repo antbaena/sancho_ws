@@ -1,5 +1,4 @@
-name: CI 
-
+name: Lint Sancho Packages
 on:
   push:
     branches: [ main ]
