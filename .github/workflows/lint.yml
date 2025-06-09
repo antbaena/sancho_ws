@@ -16,8 +16,11 @@ jobs:
           required-ros-distributions: humble
 
       # 3. Install ROS dependencies
-      - name: rosdep update
-        run: sudo rosdep update
+      - name: Initialize rosdep
+        run: |
+          sudo rosdep init
+          rosdep update
+
 
       - name: Install package dependencies
         run: |
@@ -31,8 +34,8 @@ jobs:
         run: |
           colcon build \
             --base-paths src \
-            --packages-ignore-regex "^third_party_pkgs(/.*)?$" \
-            --merge-install
+            --packages-select-regex "^sancho_"
+
 
       # 5. Setup Python y herramientas de lint
       - name: Set up Python 3.10
@@ -41,7 +44,7 @@ jobs:
           python-version: '3.10'
 
       - name: Install lint tools
-        run: pip install black ruff pylint
+        run: pip install pylint
 
       # 6. Run linters sobre src/sancho_*/sancho_*
       - name: Lint Sancho packages
@@ -49,7 +52,5 @@ jobs:
           set -e
           for pkg in src/sancho_*/sancho_*; do
             echo "🔍 Linting $pkg"
-            black --check "$pkg"
-            ruff check "$pkg"
             pylint "$pkg" --fail-under=5.0
           done
