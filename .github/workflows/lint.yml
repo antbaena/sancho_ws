@@ -16,9 +16,11 @@ jobs:
           required-ros-distributions: humble
 
       # 3. Install ROS dependencies
-      - name: Initialize rosdep
+      - name: Initialize rosdep (if needed)
         run: |
-          sudo rosdep init
+          if [ ! -f /etc/ros/rosdep/sources.list.d/20-default.list ]; then
+            sudo rosdep init
+          fi
           rosdep update
 
 
