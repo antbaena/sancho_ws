@@ -1,29 +1,59 @@
-name: Lint Sancho Packages
+name: CI 
 
-on: [push, pull_request]
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 jobs:
-  lint:
+  build-and-lint:
     runs-on: ubuntu-latest
-
     steps:
+      # 1. Checkout repository
       - uses: actions/checkout@v3
 
-      - name: Set up Python
+      # 2. Setup ROS2 Humble environment
+      - name: Set up ROS2 Humble
+        uses: ros-tooling/setup-ros@v0.5
+        with:
+          distribution: humble
+
+      # 3. Install ROS dependencies
+      - name: rosdep update
+        run: sudo rosdep update
+
+      - name: Install package dependencies
+        run: |
+          rosdep install \
+            --from-paths src \
+            --ignore-src \
+            -r -y
+
+      # 4. Build packages (excluyendo third_party_pkgs)
+      - name: Colcon build (exclude third_party_pkgs)
+        run: |
+          colcon build \
+            --base-paths src \
+            --packages-ignore-regex "^third_party_pkgs(/.*)?$" \
+            --merge-install
+
+      # 5. Setup Python y herramientas de lint
+      - name: Set up Python 3.10
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
 
-      - name: Install tools
-        run: |
-          pip install black ruff pylint
+      - name: Install lint tools
+        run: pip install black ruff pylint
 
-      - name: Lint all src/sancho_*/sancho_* packages
+      # 6. Run linters sobre src/sancho_*/sancho_*
+      - name: Lint Sancho packages
         run: |
-          set -e  # hace que el job falle si cualquier comando falla
-          
+          set -e
           for pkg in src/sancho_*/sancho_*; do
-           
-            echo "🔍 Pylint (calidad mínima 5)"
+            echo "🔍 Linting $pkg"
+            black --check "$pkg"
+            ruff check "$pkg"
             pylint "$pkg" --fail-under=5.0
           done
