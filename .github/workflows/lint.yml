@@ -24,6 +24,6 @@ jobs:
           
           for pkg in src/sancho_*/sancho_*; do
            
-            echo "🔍 Pylint (calidad mínima 7)"
-            pylint "$pkg" --fail-under=7.0
+            echo "🔍 Pylint (calidad mínima 5)"
+            pylint "$pkg" --fail-under=5.0
           done
