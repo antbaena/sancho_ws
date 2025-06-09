@@ -49,10 +49,18 @@ def generate_launch_description():
         emulate_tty=True,
     )
 
-    # Comandos para configurar los nodos
-    configure_audio = ExecuteProcess(
-        cmd=['ros2', 'lifecycle', 'set', ["/", audio_node_name], 'configure'],
-        output='screen'
+    configurator_node = Node(
+        package='sancho_lifecycle_utils',
+        executable='node_configurator',
+        name='node_configurator',
+        output='screen',
+        parameters=[
+            {
+                'node_names': [
+                    audio_node_name,            
+                ]
+            }
+        ],
     )
 
 
@@ -68,11 +76,6 @@ def generate_launch_description():
             microphone_publisher_node,
             vad_node,
             sound_direction_node,
-            TimerAction(
-                period=7.0,
-                actions=[
-                    configure_audio
-                ]
-            ),
+            configurator_node
         ]),
     ])

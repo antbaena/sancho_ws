@@ -2,17 +2,16 @@
 import os
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, ExecuteProcess, TimerAction, GroupAction
+from launch.actions import DeclareLaunchArgument, GroupAction
 from launch.substitutions import LaunchConfiguration
-from launch_ros.actions import LifecycleNode
+from launch_ros.actions import LifecycleNode, Node
+
 
 def generate_launch_description():
-    # Parámetros de lanzamiento
     prefix_cmd = LaunchConfiguration('prefix')
-    face_node_name = 'face_detector'
-    tracker_node_name = 'face_tracker'
+    face_node_name = LaunchConfiguration('face_node_name')
+    tracker_node_name = LaunchConfiguration('tracker_node_name')
 
-    # Nodos lifecycle
     face_detector_node = LifecycleNode(
         namespace='',
         package='sancho_vision',
@@ -33,43 +32,46 @@ def generate_launch_description():
         emulate_tty=True,
     )
 
-    # Comandos para configurar los nodos
-    configure_face = ExecuteProcess(
-        cmd=['ros2', 'lifecycle', 'set', ["/", face_node_name], 'configure'],
-        output='screen'
-    )
 
-    configure_tracker = ExecuteProcess(
-        cmd=['ros2', 'lifecycle', 'set', ["/", tracker_node_name], 'configure'],
-        output='screen'
+    configurator_node = Node(
+        package='sancho_lifecycle_utils',            
+        executable='node_configurator',          
+        name='node_configurator',
+        output='screen',
+        parameters=[
+            {
+
+                'node_names': ['face_detector', 'face_tracker']
+            }
+        ],
     )
 
     return LaunchDescription([
+        # -------------------
+        #  DECLARO ARGUMENTOS
+        # -------------------
         DeclareLaunchArgument(
             'prefix',
             default_value='xterm -hold -e' if os.environ.get('DISPLAY') else '',
-            description='Prefijo para lanzar nodos en terminal'
+            description='Prefijo para lanzar nodos en terminal (p.ej.: “xterm -hold -e”)'
         ),
         DeclareLaunchArgument(
             'face_node_name',
-            default_value='face_detector_node',
-            description='Nombre del nodo de detección'
+            default_value='face_detector',
+            description='Nombre del nodo de detección (face_detector)'
         ),
         DeclareLaunchArgument(
             'tracker_node_name',
-            default_value='face_tracker_node',
-            description='Nombre del nodo de seguimiento'
+            default_value='face_tracker',
+            description='Nombre del nodo de seguimiento (face_tracker)'
         ),
 
+        # --------------------
+        #  AGRUPO TODOS LOS NODOS
+        # --------------------
         GroupAction([
             face_detector_node,
             face_tracker_node,
-            TimerAction(
-                period=7.0,
-                actions=[
-                    configure_face,
-                    configure_tracker,
-                ]
-            ),
+            configurator_node,
         ]),
     ])
