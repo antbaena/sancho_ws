@@ -4,7 +4,8 @@ import os
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, ExecuteProcess, TimerAction, GroupAction
 from launch.substitutions import LaunchConfiguration
-from launch_ros.actions import LifecycleNode
+from launch_ros.actions import LifecycleNode, Node
+
 
 def generate_launch_description():
     # Parámetros de lanzamiento
@@ -22,9 +23,16 @@ def generate_launch_description():
         emulate_tty=True,
     )
     # Comandos para configurar los nodos
-    configure_manager = ExecuteProcess(
-        cmd=['ros2', 'lifecycle', 'set', ["/", manager_node_name], 'configure'],
-        output='screen'
+    configurator_node = Node(
+        package='sancho_lifecycle_utils',
+        executable='node_configurator',
+        name='node_configurator',
+        output='screen',
+        parameters=[
+            {
+                'node_names': [manager_node_name]
+            }
+        ],
     )
 
 
@@ -37,11 +45,6 @@ def generate_launch_description():
 
         GroupAction([
             interaction_manager_node,
-            TimerAction(
-                period=5.0,
-                actions=[
-                    configure_manager
-                ]
-            ),
+            configurator_node
         ]),
     ])

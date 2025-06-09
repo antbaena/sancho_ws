@@ -4,6 +4,7 @@ from rclpy.lifecycle import TransitionCallbackReturn
 from lifecycle_msgs.srv import ChangeState
 from lifecycle_msgs.msg import Transition
 
+import rclpy.wait_for_message
 from sancho_msgs.msg import FaceArray
 from sancho_msgs.action import PlayAudio
 from std_msgs.msg import Float32
@@ -60,7 +61,7 @@ class InteractionManager(LifecycleNode):
         self.declare_parameter('head_movement_topic', '/head_goal')
         self.declare_parameter('audio_angle_topic', '/audio/angle')
         self.declare_parameter('lifecycle_timeout', 5.0)
-        self.declare_parameter('tdoa_timeout', 2.0)
+        self.declare_parameter('tdoa_timeout', 5.0)
         self.declare_parameter('fallback_max_attempts', 3)
         self.declare_parameter('fallback_retry_backoff', 1.5)  # factor de exponenciación
         self.declare_parameter('face_detection_topic', '/face_detections')
@@ -144,16 +145,24 @@ class InteractionManager(LifecycleNode):
     def on_activate(self, state):
         self.get_logger().info('Activando interacción (sync)')
         # Subscriptions de sensores
-        self.face_sub = Subscriber(self, FaceArray, self.face_detection_topic,
-                                   qos_profile=self.sensor_qos,
-                                   callback_group=self.io_cb)
-        self.face_sub.registerCallback(self._face_cb)
+        self.face_sub = self.create_subscription(
+            FaceArray,
+            self.face_detection_topic,
+            callback=self._face_cb,
+            qos_profile=self.sensor_qos,
+            callback_group=self.io_cb
+        )
 
-        self.tdoa_sub = Subscriber(self, Float32, self.audio_angle_topic,
-                                   qos_profile=self.sensor_qos,
-                                   callback_group=self.io_cb)
-        self.tdoa_sub.registerCallback(self._tdoa_cb)
+        self.audio_qos = QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT)
 
+        # SUSCRIPCIÓN CORRECTA PARA /audio/angle
+        self.tdoa_sub = self.create_subscription(
+            Float32,
+            self.audio_angle_topic,
+            callback=self._tdoa_cb,
+            qos_profile=self.audio_qos,
+            callback_group=self.io_cb
+        )
 
 
         # Iniciar máquina de estados en primer estado útil
@@ -224,7 +233,7 @@ class InteractionManager(LifecycleNode):
         done_evt = threading.Event()
         def _on_done(fut):
             done_evt.set()
-        future.add_done_callback(_on_done)  # no bloquea el executor :contentReference[oaicite:0]{index=0}
+        future.add_done_callback(_on_done)  # no bloquea el executor
 
         # Esperamos hasta que self o el executor procesen la respuesta
         timeout = timeout_sec or self.lifecycle_timeout
@@ -285,6 +294,7 @@ class InteractionManager(LifecycleNode):
             else:
                 self.get_logger().warn('No se encontró cara, fallback TDOA')
                 self.state = self.STATE_FALLBACK_TDOA
+                self.tdoa_angle = None
                 self.tdoa_attempts = 0
 
                 # self.state = self.STATE_TRACK_AND_AUDIO #dummy tdoa NO implementado
@@ -295,7 +305,7 @@ class InteractionManager(LifecycleNode):
                 if self.best_face:
                     self.state = self.STATE_TRACK_AND_AUDIO
                     return
-                angle = self._get_latest_tdoa(self.tdoa_timeout)
+                angle = self.tdoa_angle
                 if angle is None:
                     self.get_logger().warn("Timeout esperando TDOA; reintentando fallback")
                     self.tdoa_attempts += 1
@@ -316,7 +326,7 @@ class InteractionManager(LifecycleNode):
                     delay = self.tdoa_timeout * (self.backoff_factor ** (self.tdoa_attempts - 1))
                     self.main_timer.cancel()
                     self.wait_timer = self.create_timer(
-                        delay,
+                        self.tdoa_timeout,
                         self._on_tdoa_wait_complete,
                         callback_group=self.io_cb
                     )
@@ -351,20 +361,34 @@ class InteractionManager(LifecycleNode):
             self._deactivate_all_modules()
             self.state = self.STATE_DONE
 
-    def _get_latest_tdoa(self, timeout_sec):
-        """Espera un Float32 en audio_angle_topic durante timeout_sec."""
-        try:
-            msg = rclpy.wait_for_message(
-                self, Float32,
-                self.audio_angle_topic,
-                timeout_sec=timeout_sec,
-                qos_profile=self.sensor_qos
-            )
-            if msg:
-                return msg.data
-        except Exception as e:
-            self.get_logger().error(f"No llegó TDOA en {timeout_sec}s: {e}")
+
+    def _get_latest_tdoa(self, timeout_sec: float) -> float | None:
+        """
+        Usa la suscripción permanente self.tdoa_sub. Espera hasta que self.tdoa_angle
+        sea distinto de None o se cumpla el timeout.
+        """
+
+        # Limpiamos cualquier dato previo
+        self.tdoa_angle = None
+        start_time = self.get_clock().now().nanoseconds
+
+        # Mientras no haya dato y no se exceda el timeout
+        while rclpy.ok():
+            # Si la callback _tdoa_cb ya escribió algo, lo devolvemos
+            if self.tdoa_angle is not None:
+                return self.tdoa_angle
+
+            # Comprobamos si se ha excedido el timeout
+            elapsed = (self.get_clock().now().nanoseconds - start_time) / 1e9
+            if elapsed >= timeout_sec:
+                self.get_logger().warn(f"No llegó TDOA en {timeout_sec:.2f}s")
+                return None
+
+            # Permitimos que otros callbacks (incluyendo _tdoa_cb) se procesen
+            rclpy.spin_once(self, timeout_sec=0.01)
+
         return None
+
 
     def _on_tdoa_wait_complete(self):
         # cancelamos el temporizador y volvemos a STATE_FALLBACK_TDOA

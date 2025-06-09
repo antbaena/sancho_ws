@@ -9,12 +9,14 @@ import numpy as np
 import rclpy
 import tf_transformations  # pip install tf-transformations
 import tf2_ros
-from tf2_ros import LookupException, ConnectivityException, ExtrapolationException
+from tf2_ros import LookupException, ConnectivityException, ExtrapolationException, TransformException
 from geometry_msgs.msg import Point, PoseStamped, Quaternion
 from rclpy.duration import Duration
 from rclpy.lifecycle import LifecycleNode, LifecycleState, TransitionCallbackReturn
 from rclpy.qos import QoSProfile
 from visualization_msgs.msg import Marker, MarkerArray
+from tf2_geometry_msgs import do_transform_pose_stamped  # <- Esto es lo que registra el tipo
+_ = do_transform_pose_stamped
 
 from sancho_msgs.msg import GroupInfo
 
@@ -146,16 +148,20 @@ class GroupWaypointGeneratorNode(LifecycleNode):
             )
             self.safety_margin = abs(self.safety_margin)
 
-        # Obtener pose del robot via TF2
-        robot_pos = self.get_robot_position(frame_id, stamp)
-        if robot_pos is None:
-            self.get_logger().warn(
-                "No se pudo obtener pose del robot via TF2."
-            )
+
+        centroid_map = self.transform_centroid_to_map(centroid, frame_id, stamp)
+        if centroid_map is None:
+            self.get_logger().warn("No se pudo transformar el centroide a 'map'.")
             return
 
+        robot_pos = self.get_robot_position('map', stamp)
+        if robot_pos is None:
+            self.get_logger().warn("No se pudo obtener la pose del robot en 'map'.")
+            return
+ 
+
         # Calcular waypoint
-        goal_point = self.compute_waypoint(centroid, radius, robot_pos)
+        goal_point = self.compute_waypoint(centroid_map, radius, robot_pos)
 
         # Decidir si actualizar según historial
         if not self.should_update_goal(goal_point):
@@ -166,15 +172,55 @@ class GroupWaypointGeneratorNode(LifecycleNode):
 
         # Guardar en historial y publicar
         self.goal_history.append(goal_point)
-        goal_msg = self.make_goal_msg(goal_point, centroid, frame_id)
+        goal_msg = self.make_goal_msg(goal_point, centroid_map)
         self.goal_pub.publish(goal_msg)
         self.get_logger().info(
             f"Publicado objetivo en {goal_point.tolist()}"
         )
 
         # Publicar marcadores en RViz
-        self.publish_markers(goal_point, centroid, frame_id)
+        self.publish_markers(goal_msg, centroid_map)
+    
+    def transform_centroid_to_map(
+        self,
+        centroid: np.ndarray,
+        source_frame: str,
+        stamp
+    ) -> Optional[np.ndarray]:
+        """
+        Crea un PoseStamped con el centroide en source_frame y lo transforma a 'map'.
+        Devuelve un array [x, y] en map, o None si falla.
+        """
+        # 1) Empaqueta el centroide en un PoseStamped
+        ps = PoseStamped()
+        ps.header.frame_id = source_frame
+        ps.header.stamp = stamp
+        ps.pose.position.x = float(centroid[0])
+        ps.pose.position.y = float(centroid[1])
+        ps.pose.position.z = 0.0
+        ps.pose.orientation.w = 1.0  # sin rotación
 
+        # 2) Pide el transform de source_frame → map
+        try:
+            tf = self.tf_buffer.lookup_transform(
+                'map',
+                source_frame,
+                rclpy.time.Time.from_msg(stamp),
+                timeout=Duration(seconds=self.tf_lookup_timeout)
+            )
+        except (LookupException, ConnectivityException, ExtrapolationException) as e:
+            self.get_logger().warn(f"TF2 lookup failed for centroid: {e}")
+            return None
+
+        # 3) Aplica la transformación
+        try:
+            ps_map = do_transform_pose_stamped(ps, tf)
+        except TransformException as e:
+            self.get_logger().warn(f"Error al transformar centroid: {e}")
+            return None
+
+        return np.array([ps_map.pose.position.x, ps_map.pose.position.y], dtype=float)
+    
     def get_robot_position(
         self, target_frame: str, stamp
     ) -> Optional[np.ndarray]:  # noqa: F821
@@ -211,6 +257,17 @@ class GroupWaypointGeneratorNode(LifecycleNode):
             direction = np.array([1.0, 0.0])
         else:
             direction = vec / norm
+
+
+
+        self.get_logger().info(f"Centroid map: {centroid.tolist()}, robot: {robot_pos.tolist()}")
+        self.get_logger().info(f"Vec = robot - centroid = {(robot_pos - centroid).tolist()}, norm = {norm:.3f}, direction = {direction.tolist()}")
+        self.get_logger().info(f"Waypoint result: { (centroid + (radius + self.safety_margin)*direction).tolist() }")
+
+
+
+
+
         return centroid + (radius + self.safety_margin) * direction
 
     def should_update_goal(self, goal_point: np.ndarray) -> bool:
@@ -224,7 +281,7 @@ class GroupWaypointGeneratorNode(LifecycleNode):
         return diff >= self.goal_update_threshold
 
     def make_goal_msg(
-        self, point: np.ndarray, centroid: np.ndarray, frame_id: str
+        self, point: np.ndarray, centroid: np.ndarray
     ) -> PoseStamped:
         """
         Crea un PoseStamped orientado hacia el grupo.
@@ -235,32 +292,30 @@ class GroupWaypointGeneratorNode(LifecycleNode):
 
         msg = PoseStamped()
         msg.header.stamp = self.get_clock().now().to_msg()
-        msg.header.frame_id = frame_id
+        msg.header.frame_id = 'map'
         msg.pose.position = Point(x=float(point[0]), y=float(point[1]), z=0.0)
         msg.pose.orientation = q
+
         return msg
 
     def publish_markers(
         self,
-        goal_point: np.ndarray,
+        goal_point: PoseStamped,
         centroid: np.ndarray,
-        frame_id: str,
     ) -> None:
         """
         Publica en RViz un punto y una flecha mostrando el waypoint.
         """
         ma = MarkerArray()
-        now = self.get_clock().now().to_msg()
 
         # Punto de waypoint
         m_p = Marker()
-        m_p.header.stamp = now
-        m_p.header.frame_id = frame_id
+        m_p.header = goal_point.header
         m_p.ns = "waypoint_point"
         m_p.id = 0
         m_p.type = Marker.SPHERE
         m_p.action = Marker.ADD
-        m_p.pose.position = Point(x=float(goal_point[0]), y=float(goal_point[1]), z=0.0)
+        m_p.pose.position = goal_point.pose.position
         m_p.pose.orientation = Quaternion(w=1.0)
         m_p.scale.x = m_p.scale.y = m_p.scale.z = 0.2
         m_p.color.r = 1.0
@@ -271,19 +326,22 @@ class GroupWaypointGeneratorNode(LifecycleNode):
         ma.markers.append(m_p)
 
         # Flecha hacia el grupo
-        vec = centroid - goal_point
+        vec = centroid - np.array([
+            goal_point.pose.position.x,
+            goal_point.pose.position.y
+        ], dtype=float)
+
         yaw = math.atan2(vec[1], vec[0])
         q = self.yaw_to_quaternion(yaw)
         dist = np.linalg.norm(vec)
 
         m_a = Marker()
-        m_a.header.stamp = now
-        m_a.header.frame_id = frame_id
+        m_a.header = goal_point.header
         m_a.ns = "waypoint_arrow"
         m_a.id = 1
         m_a.type = Marker.ARROW
         m_a.action = Marker.ADD
-        m_a.pose.position = Point(x=float(goal_point[0]), y=float(goal_point[1]), z=0.0)
+        m_a.pose.position = goal_point.pose.position
         m_a.pose.orientation = q
         m_a.scale.x = dist
         m_a.scale.y = 0.05

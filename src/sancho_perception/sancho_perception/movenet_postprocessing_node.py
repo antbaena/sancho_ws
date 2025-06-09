@@ -3,6 +3,7 @@
 
 import rclpy
 from rclpy.lifecycle import LifecycleNode, LifecycleState, TransitionCallbackReturn
+from geometry_msgs.msg import PoseStamped
 
 from sensor_msgs.msg import Image, CameraInfo
 from sancho_msgs.msg import PersonsPoses, PersonPose
@@ -12,6 +13,14 @@ import message_filters
 from people_msgs.msg import People, Person
 from geometry_msgs.msg import PoseArray, Pose, Quaternion
 import random
+from tf2_ros import (Buffer, ConnectivityException, ExtrapolationException,
+                     LookupException, TransformListener)
+from tf2_geometry_msgs import do_transform_pose_stamped
+from rclpy.duration import Duration
+import copy
+
+import numpy as np
+import tf_transformations
 random.seed(42)
 # Opcional: semilla para reproducibilidad
 
@@ -24,6 +33,8 @@ class MoveNetPostprocessingNode(LifecycleNode):
     def __init__(self):
         super().__init__('movenet_postprocessing_node')
         self.get_logger().info("Iniciando nodo de postprocesamiento MoveNet...")
+        self.tf_buffer = Buffer()
+        self.tf_listener = TransformListener(self.tf_buffer, self)
 
         # Inicializa todo a None, se configurarán en on_configure
         self.bridge = None
@@ -56,6 +67,8 @@ class MoveNetPostprocessingNode(LifecycleNode):
 
         self.declare_parameter('depth_window_size', 3)
         self.declare_parameter('keypoint_score_threshold', 0.4)
+        self.declare_parameter('target_frame', 'base_footprint')
+        self.declare_parameter('depth_outlier_radius', 0.5)  # 0.5 m por defecto
 
     def on_configure(self, state: LifecycleState) -> TransitionCallbackReturn:
         self.get_logger().info('Configurando MoveNetPostprocessingNode...')
@@ -69,6 +82,8 @@ class MoveNetPostprocessingNode(LifecycleNode):
         self.skeleton_markers_pub = self.create_lifecycle_publisher(MarkerArray, '/human_pose/skeleton_markers', 10)
         self.people_pub = self.create_lifecycle_publisher(People, '/people', 10)
         self.pose_array_pub = self.create_lifecycle_publisher(PoseArray, '/human_pose/persons_poses', 10)
+        self.target_frame = self.get_parameter('target_frame').value
+        self.depth_outlier_radius = self.get_parameter('depth_outlier_radius').value
 
         return super().on_configure(state)
     
@@ -164,7 +179,7 @@ class MoveNetPostprocessingNode(LifecycleNode):
         self.camera_info = msg
 
     def sync_callback(self, detections_msg, depth_msg):
-
+        
         if self.camera_info is None:
             self.get_logger().warn("camera_info aún no disponible, omitiendo procesamiento de este ciclo.")
             return
@@ -174,39 +189,119 @@ class MoveNetPostprocessingNode(LifecycleNode):
         except CvBridgeError as e:
             self.get_logger().error(f"Error al convertir imagen de profundidad: {e}")
             return
+        if depth_image is None or depth_image.size == 0:
+            self.get_logger().debug("Imagen de profundidad vacía o inválida, omitiendo procesamiento de este ciclo.")
+            return
+        if detections_msg is None or len(detections_msg.persons) == 0:
+            self.get_logger().debug("No se detectaron personas, omitiendo procesamiento de este ciclo.")
+            return
+        
 
-        persons_3d_msg = self._procesar_detecciones_3d(detections_msg, depth_image)
-        self.keypoints3d_pub.publish(persons_3d_msg)
+        full_detections_msg = self._procesar_detecciones_3d(detections_msg, depth_image)
+        if full_detections_msg is None:
+            self.get_logger().warn("No se pudieron completar las detecciones 3D, omitiendo procesamiento de este ciclo.")
+            return
+        # Transformar detecciones al frame 'map'
+        detections_msg = self._transform_detections_frame(full_detections_msg)
 
-        # Publicar la posición 3D de las personas como PoseArray
-        pose_array_msg = self._generar_pose_array(detections_msg, persons_3d_msg)
-        if pose_array_msg.poses:
-            self.pose_array_pub.publish(pose_array_msg)
+        if detections_msg is None:
+            self.get_logger().warn(f"No se pudieron transformar las detecciones al frame {self.target_frame}, omitiendo procesamiento de este ciclo.")
+            return
+        
 
 
-        people_msg = self._generar_people_msg(detections_msg.header, persons_3d_msg)
-        if people_msg.people:
-            self.people_pub.publish(people_msg)
 
-        skeleton_marker_array = self._generar_visualizaciones(detections_msg, persons_3d_msg)
+        self.keypoints3d_pub.publish(detections_msg)
+
+        pose_array_msg = self._generar_pose_array(detections_msg)
+        self.pose_array_pub.publish(pose_array_msg)
+
+        # people_msg = self._generar_people_msg(detections_msg)
+        # if people_msg.people:
+        #     self.people_pub.publish(people_msg)
+
+        skeleton_marker_array = self._generar_visualizaciones(detections_msg)
         self.skeleton_markers_pub.publish(skeleton_marker_array)
 
-    def _generar_pose_array(self, detections_msg, persons_3d_msg):
+
+    def _transform_detections_frame(self, detections_msg):
+        """
+        Transforma un mensaje PersonsPoses (con array de PersonPose.persons)
+        desde detections_msg.header.frame_id → 'map', modificando keypoints3d
+        pero manteniendo siempre el mismo número de keypoints.
+        """
+        try:
+            # 1) Pedir la transformación al frame 'map'
+            t = self.tf_buffer.lookup_transform(
+                self.target_frame,                          # destino
+                detections_msg.header.frame_id,             # origen
+                rclpy.time.Time(),                          # último disponible
+                timeout=Duration(seconds=0.5)
+            )
+
+            # 2) Construir matriz homogénea 4×4
+            tr = t.transform.translation
+            rot = t.transform.rotation
+            M = tf_transformations.quaternion_matrix([rot.x, rot.y, rot.z, rot.w])
+            M[0:3, 3] = [tr.x, tr.y, tr.z]
+
+            # 3) Copiar mensaje y actualizar header
+            transformed_msg = copy.deepcopy(detections_msg)
+            transformed_msg.header.frame_id = self.target_frame
+
+            # 4) Batch-transform de cada persona
+            for person in transformed_msg.persons:
+                # a) Plano Nx3 desde la lista plana de 51 floats
+                pts = np.array(person.keypoints3d, dtype=float).reshape(-1, 3)
+
+                # b) Máscara de puntos válidos
+                valid_mask = ~np.all(pts == 0.0, axis=1)
+                if not valid_mask.any():
+                    self.get_logger().warn(
+                        f"Persona {person.id} no tiene puntos válidos; keypoints3d rellenados con ceros en '{self.target_frame}'."
+                    )
+
+                # c) Coordenadas homogéneas Nx4
+                ones = np.ones((pts.shape[0], 1))
+                pts_h = np.hstack([pts, ones])
+
+                # d) Aplicar transformación
+                pts_map_all = (M @ pts_h.T).T[:, :3]
+
+                # e) Reconstruir array preservando longitud: solo reemplazar los válidos
+                pts_transformed = np.zeros_like(pts)              # comienza en ceros
+                pts_transformed[valid_mask] = pts_map_all[valid_mask]
+
+                # f) Volver a lista plana
+                person.keypoints3d = pts_transformed.flatten().tolist()
+
+                # g) Actualizar frame_id interno si existe
+                if hasattr(person, "header"):
+                    person.header.frame_id = self.target_frame
+
+            return transformed_msg
+
+        except Exception as e:
+            self.get_logger().error(f"Error al transformar detecciones: {e}")
+            raise
+  
+    def _generar_pose_array(self, persons_3d_msg):
         pose_array_msg = PoseArray()
-        pose_array_msg.header = detections_msg.header
+        pose_array_msg.header = persons_3d_msg.header
+
         for person in persons_3d_msg.persons:
-            # Usamos la primera keypoint 3D como posición
             x, y, z = person.keypoints3d[0:3]
             if x == 0.0 and y == 0.0 and z == 0.0:
-                continue  # saltamos si no hay dato válido
+                continue  # skip invalid
 
             pose = Pose()
             pose.position = Point(x=float(x), y=float(y), z=float(z))
-            # orientación identidad (sin rotación)
             pose.orientation = Quaternion(x=0.0, y=0.0, z=0.0, w=1.0)
-
             pose_array_msg.poses.append(pose)
+
+
         return pose_array_msg
+
 
 
     def _procesar_detecciones_3d(self, detections_msg, depth_image):
@@ -214,38 +309,66 @@ class MoveNetPostprocessingNode(LifecycleNode):
         persons_3d_msg.header = detections_msg.header
 
         for person in detections_msg.persons:
-            new_person = PersonPose()
-            new_person.header = person.header
-            new_person.id = person.id
-            new_person.scores = person.scores
+            # Prepara listas “por índice” de longitud esperada
+            pts_list = [None] * self.expected_kpts
+            depth_list = [None] * self.expected_kpts
 
-            keypoints_3d = []
-            depths = []
-            keypoints = [(int(person.keypoints[i]), int(person.keypoints[i+1])) for i in range(0, len(person.keypoints), 2)]
+            # Extrae keypoints 2D y scores
+            keypoints2d = [(int(person.keypoints[i]), int(person.keypoints[i+1])) 
+                        for i in range(0, len(person.keypoints), 2)]
 
-            for (x, y), score in zip(keypoints, person.scores):
-                if score > self.keypoint_score_threshold and 0 <= x < depth_image.shape[1] and 0 <= y < depth_image.shape[0]:
+            # Recorre cada keypoint indexado
+            for idx, ((x, y), score) in enumerate(zip(keypoints2d, person.scores)):
+                if score > self.keypoint_score_threshold \
+                and 0 <= x < depth_image.shape[1] \
+                and 0 <= y < depth_image.shape[0]:
                     depth_val = get_depth_value(x, y, depth_image, self.depth_window_size)
                     if depth_val and depth_val > 0:
                         pt3d = convert_2d_to_3d(x, y, depth_val, self.camera_info)
-                        keypoints_3d.extend([float(pt3d[0]), float(pt3d[1]), float(pt3d[2])])
-                        depths.append(depth_val)
-                        continue
-                keypoints_3d.extend([0.0, 0.0, 0.0])  # por defecto si no hay valor
+                        pts_list[idx]   = (float(pt3d[0]), float(pt3d[1]), float(pt3d[2]))
+                        depth_list[idx] = depth_val
+                # else deja pts_list[idx]=None y depth_list[idx]=None
 
-            valid_count = sum(1 for i in range(0, len(keypoints_3d), 3) if tuple(keypoints_3d[i:i+3]) != (0.0, 0.0, 0.0))
+            # Filtrado de outliers por radio alrededor de la media
+            valid_depths = [d for d in depth_list if d is not None]
+            if valid_depths:
+                mean_depth = float(np.mean(valid_depths))
+                for i, d in enumerate(depth_list):
+                    if d is not None and abs(d - mean_depth) > self.depth_outlier_radius:
+                        # descartamos este punto
+                        pts_list[i] = None
+                        depth_list[i] = None
+
+            # Reconstruye keypoints3d plano (ceros donde no haya pt)
+            flat_kpts3d = []
+            for pt in pts_list:
+                if pt is not None:
+                    flat_kpts3d.extend([pt[0], pt[1], pt[2]])
+                else:
+                    flat_kpts3d.extend([0.0, 0.0, 0.0])
+
+            # Comprueba ahora cuántos puntos quedan
+            valid_count = sum(1 for pt in pts_list if pt is not None)
             if valid_count < self.min_valid_keypoints:
-                continue  # saltamos personas con muy pocos puntos válidos
+                continue  # muy pocos puntos válidos
 
+            # Construye PersonPose
+            new_person = PersonPose()
+            new_person.header    = person.header
+            new_person.id        = person.id
+            new_person.scores    = person.scores
             new_person.keypoints = person.keypoints
-            new_person.keypoints3d = keypoints_3d
-            new_person.avg_depth = float(np.mean(depths)) if depths else 0.0
+            new_person.keypoints3d = flat_kpts3d
+            # Promedia sólo las profundidades no descartadas
+            new_person.avg_depth = float(np.mean([d for d in depth_list if d is not None]))
+
             persons_3d_msg.persons.append(new_person)
+
         self.get_logger().info(f"Personas 3D procesadas: {len(persons_3d_msg.persons)}")
         return persons_3d_msg
 
 
-    def _generar_visualizaciones(self, detections_msg, persons_3d_msg):
+    def _generar_visualizaciones(self, persons_3d_msg):
         skeleton_marker_array = MarkerArray()
 
         for person in persons_3d_msg.persons:
@@ -259,11 +382,11 @@ class MoveNetPostprocessingNode(LifecycleNode):
                 for idx, (x, y, z) in enumerate(zip(*[iter(keypoints_3d)] * 3))
                 if (float(x), float(y), float(z)) != (0.0, 0.0, 0.0)
             }
+            # self.get_logger().info(f"Profundidad de cada punto de la persona {person.id}: {[points_3d[idx][2] for idx in points_3d]}")
 
-
-            skeleton_marker_array.markers.append(self._crear_marker_puntos(detections_msg.header, person.id, points_3d))
-            skeleton_marker_array.markers.append(self._crear_marker_lineas(detections_msg.header, person.id, points_3d))
-            skeleton_marker_array.markers.append(self._crear_marker_texto(detections_msg.header, person.id, points_3d))
+            skeleton_marker_array.markers.append(self._crear_marker_puntos(persons_3d_msg.header, person.id, points_3d))
+            skeleton_marker_array.markers.append(self._crear_marker_lineas(persons_3d_msg.header, person.id, points_3d))
+            skeleton_marker_array.markers.append(self._crear_marker_texto(persons_3d_msg.header, person.id, points_3d))
         return skeleton_marker_array
 
 
@@ -324,15 +447,20 @@ class MoveNetPostprocessingNode(LifecycleNode):
         return marker
 
 
-    def _generar_people_msg(self, header, persons_3d_msg):
+    def _generar_people_msg(self, persons_3d_msg):
         people_msg = People()
-        people_msg.header = header
+        people_msg.header = persons_3d_msg.header
 
         for person in persons_3d_msg.persons:
             if person.avg_depth > 1.0:
                 p = Person()
                 p.name = f"person_{person.id}"
-                x,y,z = person.keypoints3d[0:3]
+                coords = np.array(person.keypoints3d).reshape(-1,3)
+                valid = coords[(coords != 0.0).all(axis=1)]
+                if len(valid):
+                    x,y,z = valid.mean(axis=0)
+                else:
+                    continue
                 if x == 0.0 and y == 0.0 and z == 0.0:
                     continue
                 p.position = Point(
