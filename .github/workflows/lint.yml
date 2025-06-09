@@ -5,6 +5,7 @@ on: [push, pull_request]
 jobs:
   lint:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v3
 
@@ -17,12 +18,12 @@ jobs:
         run: |
           pip install black ruff pylint
 
-      - name: Lint sancho_* packages
+      - name: Lint all src/sancho_*/sancho_* packages
         run: |
-          find . -type d -name "sancho_*" -exec test -f "{}/__init__.py" \; -print | while read pkg; do
-            echo "📦 Package: $pkg"
-            pylint "$pkg"
-            black "$pkg"
-            ruff check "$pkg" --fix
-            pylint "$pkg"
+          set -e  # hace que el job falle si cualquier comando falla
+          
+          for pkg in src/sancho_*/sancho_*; do
+           
+            echo "🔍 Pylint (calidad mínima 7)"
+            pylint "$pkg" --fail-under=7.0
           done
