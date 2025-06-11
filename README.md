@@ -10,22 +10,23 @@ Welcome to the **Sancho ROS2 Workspace** repository! Here you’ll find everythi
 ## 📋 Table of Contents
 
 1. [✨ Features](#-features)  
-2. [🚀 Prerequisites](#-prerequisites)  
-3. [📥 Repository Download](#-repository-download)  
-4. [🔧 Installing Dependencies](#-installing-dependencies)  
+2. [🚀 Prerequisites](#-prerequisites)
+3. [🦾 Required Hardware](#-required-hardware)
+4. [📥 Repository Download](#-repository-download)  
+5. [🔧 Installing Dependencies](#-installing-dependencies)  
    - 4.1 [ROS2 Dependencies (`package.xml`)](#41-ros2-dependencies-packagexml)  
    - 4.2 [Python Dependencies (`requirements.txt`)](#42-python-dependencies-requirementstxt)  
    - 4.3 [Node.js Dependencies (Web Client)](#43-nodejs-dependencies-web-client)  
-5. [🏗️ Workspace Compilation](#-workspace-compilation)  
-6. [▶️ Getting Started](#️-getting-started)  
+6. [🏭 Workspace Compilation](#-workspace-compilation)  
+7. [▶️ Getting Started](#️-getting-started)  
    - 6.1 [Robot Startup](#61-robot-startup)  
    - 6.2 [Interaction Modules](#62-interaction-modules)  
    - 6.3 [Navigation](#63-navigation)  
    - 6.4 [Web Server & Nginx Proxy](#64-web-server--nginx-proxy)  
    - 6.5 [Web Interface Development Mode](#65-web-interface-development-mode)  
-7. [🗂️ Project Structure](#️-project-structure)  
-8. [🛠️ Contributions](#️-contributions)  
-9. [📄 License](#-license)  
+8. [🗂️ Project Structure](#️-project-structure)  
+9. [🛠️ Contributions](#️-contributions)  
+10. [📄 License](#-license)  
 
 ---
 
@@ -71,6 +72,25 @@ Make sure you have the following:
   npm -v   # ≥10
   ```
 
+---
+## 🦾 Required Hardware
+
+Below is a detailed list of the devices used in the robotic system **“Sancho.”**  
+All components have been tested together; however, you can replace them with equivalents as long as they offer similar performance.
+
+- **Mobile Base — AgileX Ranger Mini V3**  
+  A 4×4 platform with independent steering, turning radius ≤ 0.42 m, and a 48 V Li-ion battery. It serves as the chassis, locomotion actuator, and power source.
+
+- **Onboard Computer**  
+  MinisForum HM80 Mini-PC with **AMD Ryzen 7 4800U**, **32 GB RAM**, and **512 GB NVMe SSD**; provides the computing power required for ROS 2, vision, and real-time planning.
+
+- **Perception Sensors**
+  - 2 × **Hokuyo UTM-30LX LIDARs** (270° @ 40 Hz) for mapping and safe navigation.
+  - **Orbbec Astra RGB-D Camera** (640 × 480 @ 30 Hz) with integrated stereo MEMS microphones, used for user detection and TDOA computation.
+  - **5 MP USB RGB Camera** (ELP-USB500W05G-L170, FoV ≈ 170°) mounted on the head for frontal interaction.
+
+- **Pan-Tilt Unit**  
+  Interbotix **WidowX Dual XM430** (±105° in pan/tilt, Dynamixel XM430-W350-T servos) to orient the front camera toward the speaker.
 ---
 
 ## 📥 Repository Download
@@ -119,7 +139,7 @@ npm run build
 
 ---
 
-## 🏗️ Workspace Compilation
+## 🏭 Workspace Compilation
 
 ```bash
 cd ~/sancho_ws
@@ -216,22 +236,23 @@ This project is under **GPL-3** license. See the [LICENSE](LICENSE) file for mor
 ## 📋 Tabla de Contenidos
 
 1. [✨ Características](#-características)  
-2. [🚀 Requisitos Previos](#-requisitos-previos)  
-3. [📥 Descarga del Repositorio](#-descarga-del-repositorio)  
-4. [🔧 Instalación de Dependencias](#-instalación-de-dependencias)  
+2. [🚀 Requisitos Previos](#-requisitos-previos)
+3. [🦾 Hardware necesario](#-hardware-necesario)  
+4. [📥 Descarga del Repositorio](#-descarga-del-repositorio)  
+5. [🔧 Instalación de Dependencias](#-instalación-de-dependencias)  
    - 4.1 [Dependencias ROS2 (`package.xml`)](#41-dependencias-ros2-packagexml)  
    - 4.2 [Dependencias Python (`requirements.txt`)](#42-dependencias-python-requirementstxt)  
    - 4.3 [Dependencias Node.js (cliente web)](#43-dependencias-nodejs-cliente-web)  
-5. [🏗️ Compilación del Workspace](#-compilación-del-workspace)  
-6. [▶️ Puesta en Marcha](#️-puesta-en-marcha)  
+6. [🏭 Compilación del Workspace](#-compilación-del-workspace)  
+7. [▶️ Puesta en Marcha](#️-puesta-en-marcha)  
    - 6.1 [Arranque del Robot](#61-arranque-del-robot)  
    - 6.2 [Módulos de Interacción](#62-módulos-de-interacción)  
    - 6.3 [Navegación](#63-navegación)  
    - 6.4 [Servidor Web & Proxy Nginx](#64-servidor-web--proxy-nginx)  
    - 6.5 [Modo Desarrollo de la Interfaz Web](#65-modo-desarrollo-de-la-interfaz-web)  
-7. [🗂️ Estructura del Proyecto](#️-estructura-del-proyecto)  
-8. [🛠️ Contribuciones](#️-contribuciones)  
-9. [📄 Licencia](#-licencia)  
+8. [🗂️ Estructura del Proyecto](#️-estructura-del-proyecto)  
+9. [🛠️ Contribuciones](#️-contribuciones)  
+10. [📄 Licencia](#-licencia)  
 
 ---
 ## ✨ Características
@@ -275,6 +296,26 @@ Antes de empezar, asegúrate de contar con lo siguiente:
   node -v  # v20.x
   npm -v   # ≥10
   ```
+
+---
+## 🦾 Hardware necesario 
+
+A continuación se detalla el conjunto de dispositivos empleados en el sistema robótico «Sancho».  
+Todos los componentes han sido validados juntos; sin embargo, puedes sustituirlos por equivalentes si mantienes prestaciones similares.
+
+- **Base móvil — AgileX Ranger Mini V3**  
+  Plataforma 4 × 4 con dirección independiente, radio de giro ≤ 0,42 m y batería Li-ion 48 V. Sirve de chasis, actuador de locomoción y fuente de energía. :contentReference[oaicite:0]{index=0}
+
+- **Ordenador de a bordo**  
+  Mini-PC MinisForum HM80 con **AMD Ryzen 7 4800U**, **32 GB RAM** y **SSD NVMe 512 GB**; proporciona la potencia de cálculo necesaria para ROS 2, visión y planificación en tiempo real. 
+
+- **Sensores de percepción**
+  - 2 × **LIDAR Hokuyo UTM-30LX** (270 ° @ 40 Hz) para mapeo y navegación segura. :contentReference[oaicite:1]{index=1}
+  - **Cámara RGB-D Orbbec Astra** (640 × 480 @ 30 Hz) con micrófonos MEMS estéreo integrados, usada para detección de usuarios y cálculo TDOA. :contentReference[oaicite:2]{index=2}
+  - **Cámara USB RGB 5 MP** (ELP-USB500W05G-L170, FoV ≈ 170 °) montada en la cabeza para interacción frontal. :contentReference[oaicite:3]{index=3}
+
+- **Unidad pan-tilt**  
+  Interbotix **WidowX Dual XM430** (± 105 ° en pan/tilt, servos Dynamixel XM430-W350-T) que orienta la cámara frontal hacia el interlocutor. :contentReference[oaicite:4]{index=4}
 
 ---
 
@@ -326,7 +367,7 @@ npm run build  # genera producción en dist/
 
 ---
 
-## 🏗️ Compilación del Workspace
+## 🏭 Compilación del Workspace
 
 ```bash
 cd ~/sancho_ws
