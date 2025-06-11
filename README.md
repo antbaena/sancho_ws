@@ -86,7 +86,7 @@ All components have been tested together; however, you can replace them with equ
 
 - **Perception Sensors**
   - 2 × **Hokuyo UTM-30LX LIDARs** (270° @ 40 Hz) for mapping and safe navigation.
-  - **Orbbec Astra RGB-D Camera** (640 × 480 @ 30 Hz) with integrated stereo MEMS microphones, used for user detection and TDOA computation.
+  - **Orbbec Astra RGB-D Camera** (640 × 480 @ 30 Hz) with integrated stereo MEMS microphones, used for user detection and TDOA computation (Driver installation Guide: https://github.com/orbbec/ros2_astra_camera).
   - **5 MP USB RGB Camera** (ELP-USB500W05G-L170, FoV ≈ 170°) mounted on the head for frontal interaction.
 
 - **Pan-Tilt Unit**  
@@ -311,7 +311,7 @@ Todos los componentes han sido validados juntos; sin embargo, puedes sustituirlo
 
 - **Sensores de percepción**
   - 2 × **LIDAR Hokuyo UTM-30LX** (270 ° @ 40 Hz) para mapeo y navegación segura.
-  - **Cámara RGB-D Orbbec Astra** (640 × 480 @ 30 Hz) con micrófonos MEMS estéreo integrados, usada para detección de usuarios y cálculo TDOA.
+  - **Cámara RGB-D Orbbec Astra** (640 × 480 @ 30 Hz) con micrófonos MEMS estéreo integrados, usada para detección de usuarios y cálculo TDOA (Guía instalación driver: https://github.com/orbbec/ros2_astra_camera).
   - **Cámara USB RGB 5 MP** (ELP-USB500W05G-L170, FoV ≈ 170 °) montada en la cabeza para interacción frontal.
 
 - **Unidad pan-tilt**  
