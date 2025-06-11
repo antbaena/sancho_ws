@@ -78,8 +78,6 @@ Make sure you have the following:
 Clone this repo into an empty workspace:
 
 ```bash
-mkdir -p ~/sancho_ws/src
-cd ~/sancho_ws/src
 git clone https://github.com/antbaena/sancho_ws.git
 cd ~/sancho_ws
 ```
@@ -125,7 +123,7 @@ npm run build
 
 ```bash
 cd ~/sancho_ws
-colcon build --symlink-install
+colcon build
 source install/setup.bash
 ```
 
@@ -285,9 +283,7 @@ Antes de empezar, asegúrate de contar con lo siguiente:
 Clona el repositorio dentro de un workspace vacío:
 
 ```bash
-mkdir -p ~/sancho_ws/src
-cd ~/sancho_ws/src
-git clone https://github.com/antbaena/sancho_ws.git --branch develop
+git clone https://github.com/antbaena/sancho_ws.git
 cd ~/sancho_ws
 ```
 
@@ -334,7 +330,7 @@ npm run build  # genera producción en dist/
 
 ```bash
 cd ~/sancho_ws
-colcon build --symlink-install
+colcon build
 source install/setup.bash
 ```
 
