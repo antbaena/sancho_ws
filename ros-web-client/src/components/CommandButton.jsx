@@ -2,7 +2,7 @@ import React, { useContext } from "react";
 import ROSLIB from "roslib";
 import { RosContext } from "../ros/RosContext";
 
-export default function CommandButton({ topic, label, messageData }) {
+export default function CommandButton({ topic, label, messageData, type, disabled }) {
   const { ros } = useContext(RosContext);
   const handleClick = () => {
     if (!ros) return;
@@ -10,7 +10,7 @@ export default function CommandButton({ topic, label, messageData }) {
     cmdTopic.publish(messageData);
   };
   return (
-    <button className="btn btn-primary w-100 shadow-sm" onClick={handleClick} disabled={!ros}>
+    <button className={`btn ${type} w-100 shadow-sm`} onClick={handleClick} disabled={!ros || disabled}>
       {label}
     </button>
   );
