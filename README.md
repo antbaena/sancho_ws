@@ -2,7 +2,7 @@
   <a href="#english">🇬🇧 English</a> | <a href="#español">🇪🇸 Español</a>
 </p>
 
-#  Sancho ROS2 Workspace 🤖
+# 🇬🇧 Sancho ROS2 Workspace 🤖
 
 Welcome to the **Sancho ROS2 Workspace** repository! Here you’ll find everything needed to deploy, build, and run your Sancho robot—a modular system based on ROS 2 Humble and a modern web interface built with React and Vite.
 
@@ -239,6 +239,198 @@ _Para ver esta sección en inglés, haz clic en la bandera 🇬🇧 arriba._
 7. [🗂️ Estructura del Proyecto](#️-estructura-del-proyecto)  
 8. [🛠️ Contribuciones](#️-contribuciones)  
 9. [📄 Licencia](#-licencia)  
+
+---
+## ✨ Características
+
+- Modular: 13 paquetes ROS2 propios (`sancho_audio`, `sancho_navigation`, `sancho_web`, etc.).  
+- Interacción multimodal: visión social, detección y seguimiento de rostros, audio con VAD, movimiento de cabeza.  
+- Pila completa de navegación Nav2: mapeado, localización y planificación.  
+- Interfaz web moderna: React + Vite con proxy WebSocket/HTTP mediante Nginx.  
+- Scripts y lanzadores (`launch.py`) para todos los componentes.  
+
+---
+
+## 🚀 Requisitos Previos
+
+Antes de empezar, asegúrate de contar con lo siguiente:
+
+- **Sistema operativo**: Ubuntu 22.04 LTS 🐧  
+- **ROS 2**: Humble Hawksbill 🦅  
+  ```bash
+  sudo apt update
+  sudo apt install ros-humble-desktop
+  sudo rosdep init
+  rosdep update
+  ```
+
+- **Herramientas básicas**: `git`, `pip`, `colcon`  
+  ```bash
+  sudo apt install git python3-pip python3-colcon-common-extensions
+  ```
+
+- **Nginx** (proxy inverso WebSocket/HTTP)  
+  ```bash
+  sudo apt install nginx
+  sudo systemctl enable --now nginx
+  ```
+
+- **Node.js** (versión LTS ≥18) y `npm` para compilar la interfaz React/Vite  
+  ```bash
+  curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+  sudo apt install -y nodejs
+  node -v  # v20.x
+  npm -v   # ≥10
+  ```
+
+---
+
+## 📥 Descarga del Repositorio
+
+Clona el repositorio dentro de un workspace vacío:
+
+```bash
+mkdir -p ~/sancho_ws/src
+cd ~/sancho_ws/src
+git clone https://github.com/antbaena/sancho_ws.git --branch develop
+cd ~/sancho_ws
+```
+
+> ➡️ El directorio `src/` contiene 13 paquetes ROS2 propios.
+
+---
+
+## 🔧 Instalación de Dependencias
+
+### 4.1 Dependencias ROS2 (`package.xml`)
+
+Instala las dependencias declaradas en cada `package.xml`:
+
+```bash
+cd ~/sancho_ws
+rosdep install --from-paths src --ignore-src -r -y
+```
+
+### 4.2 Dependencias Python (`requirements.txt`)
+
+- **Individual**:  
+  ```bash
+  pip install -r src/sancho_perception/requirements.txt
+  pip install -r src/sancho_audio/requirements.txt
+  # …
+  ```
+
+- **Todas a la vez**:  
+  ```bash
+  find src -name requirements.txt -exec pip install -r {} \\\;
+  ```
+
+### 4.3 Dependencias Node.js (cliente web)
+
+```bash
+cd src/sancho_web/ros-web-client
+npm install    # instala React, Vite y librerías auxiliares
+npm run build  # genera producción en dist/
+```
+
+---
+
+## 🏗️ Compilación del Workspace
+
+```bash
+cd ~/sancho_ws
+colcon build --symlink-install
+source install/setup.bash
+```
+
+---
+
+## ▶️ Puesta en Marcha
+
+### 6.1 Arranque del Robot
+
+- **Visualizar URDF en RViz2**:  
+  ```bash
+  ros2 launch sancho_description display.launch.py
+  ```
+- **Bring-up de base y sensores**:  
+  ```bash
+  ros2 launch sancho_bringup sancho_bringup.launch.py
+  ```
+
+### 6.2 Módulos de Interacción
+
+| Módulo                         | Comando                                                        |
+|--------------------------------|----------------------------------------------------------------|
+| Percepción completa            | `ros2 launch sancho_perception full_perception_launch.py`    |
+| Visión social (rostros)        | `ros2 launch sancho_vision detector_tracker.launch.py`       |
+| Audio + VAD                    | `ros2 launch sancho_audio audio_player.launch.py`            |
+| Movimiento de la cabeza        | `ros2 launch sancho_head_control sancho_head_launch.py`      |
+| Gestor de interacción          | `ros2 launch sancho_interaction sancho_interaction_manager.launch.py` |
+| Orquestador social             | `ros2 run sancho_orchestrator orchestrator_node`             |
+
+### 6.3 Navegación
+
+```bash
+ros2 launch sancho_navigation navigation_launch.py
+```
+
+### 6.4 Servidor Web & Proxy Nginx
+
+- **Arrancar servidor web**:  
+  ```bash
+  ros2 launch sancho_web web.launch.py
+  ```
+- **Control Nginx (opcional)**:  
+  ```bash
+  scripts/start_nginx.sh  # Inicia proxy WebSocket
+  scripts/stop_nginx.sh   # Detiene Nginx
+  ```
+
+### 6.5 Modo Desarrollo de la Interfaz Web
+
+Durante el desarrollo, sirve la SPA con Vite:
+
+```bash
+cd src/sancho_web/ros-web-client
+npm run dev    # http://localhost:5173
+# Para previsualizar producción:
+npm run preview  # http://localhost:4173
+```
+
+> 🛠️ Ajusta el proxy de WebSocket en `vite.config.js` si el rosbridge está en otra máquina o puerto.
+
+---
+
+## 🗂️ Estructura del Proyecto
+
+```text
+sancho_ws/
+├── src/
+│   ├── sancho_audio/
+│   ├── sancho_bringup/
+│   ├── sancho_description/
+│   ├── sancho_demo/
+│   ├─ …
+└── install/
+```
+
+---
+
+## 🛠️ Contribuciones
+
+¡Se aceptan **issues** y **pull requests**! Por favor:
+
+1. Abre un **issue** detallando tu propuesta o bug.  
+2. Crea una rama (`git checkout -b feature/nueva-funcionalidad`).  
+3. Realiza tus cambios y añade tests si procede.  
+4. Abre un **pull request** describiendo los cambios.
+
+---
+
+## 📄 Licencia
+
+Este proyecto está bajo licencia **MIT**. Consulta el fichero [LICENSE](LICENSE) para más detalles.
 
 ---
 
