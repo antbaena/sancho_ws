@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Orchestrator Node for ROS2 Humble
-- FSM states: BUSCANDO, NAVEGANDO, EVALUANDO, SOCIALIZANDO
+- FSM states: BUSCANDO, NAVEGANDO, SOCIALIZANDO
 - Uses Nav2 ActionClient to navigate, lifecycle services to manage nodes,
 and parameters for easy tuning.
 - Fully asynchronous _change_node_state without blocking, ensuring
@@ -23,7 +23,6 @@ from sancho_msgs.srv import SocialState
 class OrchestratorState:
     BUSCANDO = "BUSCANDO"
     NAVEGANDO = "NAVEGANDO"
-    EVALUANDO = "EVALUANDO"
     SOCIALIZANDO = "SOCIALIZANDO"
 
 
@@ -35,7 +34,6 @@ class OrchestratorNode(Node):
         self.executor = executor
         # Declare parameters
         self.declare_parameter("navigation_timeout", 20.0)
-        self.declare_parameter("evaluation_timeout", 5.0)
         self.declare_parameter("social_timeout", 30.0)
         self.declare_parameter("group_waypoint_topic", "/group_waypoint")
         self.declare_parameter("navigate_action_name", "navigate_to_pose")
@@ -45,7 +43,6 @@ class OrchestratorNode(Node):
 
         # Load params
         self.navigation_timeout = self.get_parameter("navigation_timeout").value
-        self.evaluation_timeout = self.get_parameter("evaluation_timeout").value
         self.social_timeout = self.get_parameter("social_timeout").value
         self.waypoint_topic = self.get_parameter("group_waypoint_topic").value
         self.navigate_action = self.get_parameter("navigate_action_name").value
@@ -200,12 +197,6 @@ class OrchestratorNode(Node):
             and elapsed > self.navigation_timeout
         ):
             self.get_logger().warn("Timeout NAVEGANDO.")
-            self._recover_to_search()
-        elif (
-            self.current_state == OrchestratorState.EVALUANDO
-            and elapsed > self.evaluation_timeout
-        ):
-            self.get_logger().warn("Timeout EVALUANDO.")
             self._recover_to_search()
         elif self.current_state == OrchestratorState.SOCIALIZANDO:
             if self.social_state == self.STATE_SOCIAL_FINISHED:
