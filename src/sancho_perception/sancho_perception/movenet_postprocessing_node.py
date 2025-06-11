@@ -14,6 +14,7 @@ from rclpy.duration import Duration
 from rclpy.lifecycle import LifecycleNode, LifecycleState, TransitionCallbackReturn
 from sancho_msgs.msg import PersonPose, PersonsPoses
 from sensor_msgs.msg import CameraInfo, Image
+from std_msgs.msg import Header
 from tf2_ros import (
     Buffer,
     TransformListener,
@@ -247,9 +248,8 @@ class MoveNetPostprocessingNode(LifecycleNode):
         pose_array_msg = self._generar_pose_array(detections_msg)
         self.pose_array_pub.publish(pose_array_msg)
 
-        # people_msg = self._generar_people_msg(detections_msg)
-        # if people_msg.people:
-        #     self.people_pub.publish(people_msg)
+        people_msg = self._generar_people_msg(detections_msg)
+        self.people_pub.publish(people_msg)
 
         skeleton_marker_array = self._generar_visualizaciones(detections_msg)
         self.skeleton_markers_pub.publish(skeleton_marker_array)
@@ -495,7 +495,9 @@ class MoveNetPostprocessingNode(LifecycleNode):
 
     def _generar_people_msg(self, persons_3d_msg):
         people_msg = People()
-        people_msg.header = persons_3d_msg.header
+        people_msg.header = Header()
+        people_msg.header.stamp = self.get_clock().now().to_msg()
+        people_msg.header.frame_id = persons_3d_msg.header.frame_id
 
         for person in persons_3d_msg.persons:
             if person.avg_depth > 1.0:
@@ -514,7 +516,19 @@ class MoveNetPostprocessingNode(LifecycleNode):
                     y=float(person.keypoints3d[1]),
                     z=float(person.keypoints3d[2]),
                 )
-                p.velocity = Point(x=0.0, y=0.0, z=0.0)
+                if (
+                    len(coords) > 6
+                    and not np.all(coords[5] == 0.0)
+                    and not np.all(coords[6] == 0.0)
+                ):
+                    left_shoulder = coords[5]
+                    right_shoulder = coords[6]
+                    shoulder_vec = left_shoulder - right_shoulder
+                    angle = float(np.arctan2(shoulder_vec[1], shoulder_vec[0]))
+                else:
+                    angle = 0.0
+                # Guardar el ángulo en velocity.z (por ejemplo)
+                p.velocity = Point(x=0.0, y=0.0, z=angle)
                 people_msg.people.append(p)
         return people_msg
 
