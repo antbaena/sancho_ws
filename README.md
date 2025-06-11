@@ -1,6 +1,5 @@
-<p align="right">
-  <a href="#🇬🇧">🇬🇧 English</a> | <a href="#🇪🇸">🇪🇸 Español</a>
-</p>
+[English](#🇬🇧) | [Español](#🇪🇸)
+
 
 ## 🇬🇧 Sancho ROS2 Workspace 🤖
 
