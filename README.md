@@ -1,8 +1,8 @@
 <p align="right">
-  <a href="#english">🇬🇧 English</a> | <a href="#español">🇪🇸 Español</a>
+  <a href="#🇬🇧">🇬🇧 English</a> | <a href="#🇪🇸">🇪🇸 Español</a>
 </p>
 
-# 🇬🇧 Sancho ROS2 Workspace 🤖
+## 🇬🇧 Sancho ROS2 Workspace 🤖
 
 Welcome to the **Sancho ROS2 Workspace** repository! Here you’ll find everything needed to deploy, build, and run your Sancho robot—a modular system based on ROS 2 Humble and a modern web interface built with React and Vite.
 
@@ -212,11 +212,7 @@ This project is under **GPL-3** license. See the [LICENSE](LICENSE) file for mor
 
 ---
 
-# 🇪🇸 Español
-
-_Para ver esta sección en inglés, haz clic en la bandera 🇬🇧 arriba._
-
-## Sancho ROS2 Workspace 🤖
+## 🇪🇸 Sancho ROS2 Workspace 🤖
 
 ¡Bienvenido al repositorio **Sancho ROS2 Workspace**! Aquí encontrarás todo lo necesario para desplegar, compilar y ejecutar tu robot Sancho, un sistema modular basado en ROS 2 Humble y una interfaz web moderna con React y Vite.
 
