@@ -304,18 +304,18 @@ A continuación se detalla el conjunto de dispositivos empleados en el sistema r
 Todos los componentes han sido validados juntos; sin embargo, puedes sustituirlos por equivalentes si mantienes prestaciones similares.
 
 - **Base móvil — AgileX Ranger Mini V3**  
-  Plataforma 4 × 4 con dirección independiente, radio de giro ≤ 0,42 m y batería Li-ion 48 V. Sirve de chasis, actuador de locomoción y fuente de energía. :contentReference[oaicite:0]{index=0}
+  Plataforma 4 × 4 con dirección independiente, radio de giro ≤ 0,42 m y batería Li-ion 48 V. Sirve de chasis, actuador de locomoción y fuente de energía.
 
 - **Ordenador de a bordo**  
   Mini-PC MinisForum HM80 con **AMD Ryzen 7 4800U**, **32 GB RAM** y **SSD NVMe 512 GB**; proporciona la potencia de cálculo necesaria para ROS 2, visión y planificación en tiempo real. 
 
 - **Sensores de percepción**
-  - 2 × **LIDAR Hokuyo UTM-30LX** (270 ° @ 40 Hz) para mapeo y navegación segura. :contentReference[oaicite:1]{index=1}
-  - **Cámara RGB-D Orbbec Astra** (640 × 480 @ 30 Hz) con micrófonos MEMS estéreo integrados, usada para detección de usuarios y cálculo TDOA. :contentReference[oaicite:2]{index=2}
-  - **Cámara USB RGB 5 MP** (ELP-USB500W05G-L170, FoV ≈ 170 °) montada en la cabeza para interacción frontal. :contentReference[oaicite:3]{index=3}
+  - 2 × **LIDAR Hokuyo UTM-30LX** (270 ° @ 40 Hz) para mapeo y navegación segura.
+  - **Cámara RGB-D Orbbec Astra** (640 × 480 @ 30 Hz) con micrófonos MEMS estéreo integrados, usada para detección de usuarios y cálculo TDOA.
+  - **Cámara USB RGB 5 MP** (ELP-USB500W05G-L170, FoV ≈ 170 °) montada en la cabeza para interacción frontal.
 
 - **Unidad pan-tilt**  
-  Interbotix **WidowX Dual XM430** (± 105 ° en pan/tilt, servos Dynamixel XM430-W350-T) que orienta la cámara frontal hacia el interlocutor. :contentReference[oaicite:4]{index=4}
+  Interbotix **WidowX Dual XM430** (± 105 ° en pan/tilt, servos Dynamixel XM430-W350-T) que orienta la cámara frontal hacia el interlocutor.
 
 ---
 
