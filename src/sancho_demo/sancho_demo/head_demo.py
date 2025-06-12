@@ -74,7 +74,7 @@ class PTUHumanMotion(Node):
         self.get_logger().info("Torreta inicializada en posición neutral.")
 
     def joint_state_callback(self, msg: JointState):
-        # Procesamiento del estado de la cabeza (puedes ampliarlo según tus necesidades)
+        # Procesamiento del estado de la cabeza
         self.get_logger().debug("Estado de la cabeza recibido.")
 
     def schedule_next_move(self):

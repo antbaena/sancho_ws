@@ -14,7 +14,7 @@ class MicrophoneNode(Node):
     def __init__(self):
         super().__init__("microphone_capturer_node")
 
-        # 1) Declaración de parámetros (puedes sobreescribirlos con ros2 param set)
+        # 1) Declaración de parámetros
         self.declare_parameter("device_search_name", "ORBBEC")
         self.declare_parameter("chunk_size", 1024)
         self.declare_parameter("topic_name", "/audio/raw")
