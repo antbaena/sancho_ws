@@ -1,4 +1,3 @@
-// src/chartConfig.js (puedes crear este archivo y luego importarlo en App.jsx)
 import {
   Chart as ChartJS,
   LineElement,
