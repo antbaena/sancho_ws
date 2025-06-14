@@ -5,10 +5,10 @@ import NavGoalForm from "../components/NavGoalForm";
 
 export default function MapPage() {
   return (
-    <div className="container my-5">
-      <div className="card shadow-sm border-0">
+   <div className="container my-5">
+      <div className="card shadow p-4 bg-white rounded">
+        <h1 className="card-title mb-4 text-secundary">Mapa y Navegación 🗺️</h1>
         <div className="card-body">
-          <h2 className="card-title mb-4">Mapa y Navegación</h2>
           <div className="row">
             <div className="col-md-8 mb-4">
               <div className="border rounded shadow-sm" style={{ height: "400px" }}>

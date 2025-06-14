@@ -4,15 +4,20 @@ import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import JointState
 
+
 class JointStateMerger(Node):
     def __init__(self):
-        super().__init__('joint_state_merger')
+        super().__init__("joint_state_merger")
         self.joints_1 = JointState()
         self.joints_2 = JointState()
 
-        self.pub = self.create_publisher(JointState, '/joint_states_merged', 10)
-        self.sub1 = self.create_subscription(JointState, '/wxxms/joint_states', self.cb1, 10)
-        self.sub2 = self.create_subscription(JointState, '/joint_states_urdf', self.cb2, 10)
+        self.pub = self.create_publisher(JointState, "/joint_states_merged", 10)
+        self.sub1 = self.create_subscription(
+            JointState, "/wxxms/joint_states", self.cb1, 10
+        )
+        self.sub2 = self.create_subscription(
+            JointState, "/joint_states_urdf", self.cb2, 10
+        )
 
         self.timer = self.create_timer(0.02, self.publish_merged)  # 50 Hz
 
@@ -52,6 +57,7 @@ class JointStateMerger(Node):
             merged.effort.append(eff)
 
         self.pub.publish(merged)
+
 
 def main(args=None):
     rclpy.init(args=args)

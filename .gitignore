@@ -166,3 +166,5 @@ certs/*.pem
 /rosbag*
 /calibrationdata
 /.vscode
+/python_tests
+.pre-commit-config.yaml

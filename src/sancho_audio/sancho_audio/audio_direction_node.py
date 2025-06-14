@@ -1,12 +1,15 @@
 # File: tdoa_detector_node.py
+import numpy as np
 import rclpy
 from rclpy.node import Node
 from sancho_msgs.msg import VADSegment
 from std_msgs.msg import Float32
-import numpy as np
+
+from .tdoa_nodes.tdoa_gcc import gcc_phat
 
 # Import both methods
 from .tdoa_nodes import STRATEGIES, TDOAStrategy
+
 
 
 def compute_angle_from_delay(
@@ -47,6 +50,7 @@ class SoundAngleDetector(Node):
         else:
             raise TypeError("Clase de estrategia inválida")
 
+
         # Subscriber to VAD segments
         self.sub = self.create_subscription(
             VADSegment, "/audio/vad_segment", self.vad_callback, 10
@@ -73,6 +77,7 @@ class SoundAngleDetector(Node):
             right = np.array(seg.right_channel, dtype=float)
             tau = self.strategy.compute_delay(left, right)
             angle = compute_angle_from_delay(tau, self.mic_distance)
+
             # Publish result
             msg_out = Float32()
             msg_out.data = angle
