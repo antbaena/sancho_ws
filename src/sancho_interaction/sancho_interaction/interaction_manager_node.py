@@ -4,11 +4,10 @@ import threading
 
 import rclpy
 import rclpy.wait_for_message
-from ament_index_python.packages import get_package_share_directory
-from geometry_msgs.msg import PoseStamped
-from lifecycle_msgs.msg import Transition
-from lifecycle_msgs.srv import ChangeState
-from rclpy.action import ActionClient
+from sancho_msgs.msg import FaceArray
+from sancho_msgs.action import PlayAudio
+from std_msgs.msg import Float32
+
 from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.lifecycle import LifecycleNode, TransitionCallbackReturn
@@ -21,6 +20,24 @@ from tf_transformations import (
     quaternion_from_euler,  # Asegúrate de que este paquete está instalado
 )
 
+
+from tf_transformations import quaternion_from_euler  # Asegúrate de que este paquete está instalado
+
+
+class IMState:
+    """Interface for InteractionManager states."""
+
+    def __init__(self, manager: "InteractionManager") -> None:
+        self.manager = manager
+
+    def enter(self) -> None:
+        """Hook executed when the state is entered."""
+
+    def execute(self) -> None:
+        """Main logic executed periodically by the manager."""
+
+    def exit(self) -> None:
+        """Cleanup executed when leaving the state."""
 
 class InteractionManager(LifecycleNode):
 
@@ -89,10 +106,19 @@ class InteractionManager(LifecycleNode):
         self.best_face = None
 
         # Máquina de estados
-        self.state = self.STATE_IDLE
+        self.current_state: IMState | None = None
         self.wait_timer = None
+        self.main_timer = None
+        self.transition_to(IdleState)
 
         self.get_logger().info("InteractionManager (sync) creado")
+
+    def transition_to(self, state_cls: type[IMState]) -> None:
+        """Change current state."""
+        if self.current_state:
+            self.current_state.exit()
+        self.current_state = state_cls(self)
+        self.current_state.enter()
 
     # ------------------------------------------------------------
     # Lifecycle callbacks
@@ -101,21 +127,20 @@ class InteractionManager(LifecycleNode):
         self.get_logger().info("Configuring InteractionManager")
 
         # Leer parámetros
-        self.max_attempts = self.get_parameter("max_face_attempts").value
-        self.face_size_threshold = self.get_parameter("face_size_threshold").value
-        self.face_confidence_threshold = self.get_parameter(
-            "face_confidence_threshold"
-        ).value
-        self.tdoa_angle_limit = self.get_parameter("tdoa_angle_limit").value
-        self.rotation_speed = self.get_parameter("rotation_speed").value
-        self.rotation_duration = self.get_parameter("rotation_duration").value
-        self.head_movement_topic = self.get_parameter("head_movement_topic").value
-        self.audio_angle_topic = self.get_parameter("audio_angle_topic").value
-        self.face_detection_topic = self.get_parameter("face_detection_topic").value
-        self.lifecycle_timeout = self.get_parameter("lifecycle_timeout").value
-        self.tdoa_timeout = self.get_parameter("tdoa_timeout").value
-        self.fallback_max_attempts = self.get_parameter("fallback_max_attempts").value
-        self.backoff_factor = self.get_parameter("fallback_retry_backoff").value
+        self.max_attempts = self.get_parameter('max_face_attempts').value
+        self.face_size_threshold = self.get_parameter('face_size_threshold').value
+        self.face_confidence_threshold = self.get_parameter('face_confidence_threshold').value
+        self.tdoa_angle_limit = self.get_parameter('tdoa_angle_limit').value
+        self.rotation_speed = self.get_parameter('rotation_speed').value
+        self.rotation_duration = self.get_parameter('rotation_duration').value
+        self.head_movement_topic = self.get_parameter('head_movement_topic').value
+        self.audio_angle_topic = self.get_parameter('audio_angle_topic').value
+        self.face_detection_topic = self.get_parameter('face_detection_topic').value
+        self.lifecycle_timeout      = self.get_parameter('lifecycle_timeout').value
+        self.tdoa_timeout           = self.get_parameter('tdoa_timeout').value
+        self.fallback_max_attempts  = self.get_parameter('fallback_max_attempts').value
+        self.backoff_factor         = self.get_parameter('fallback_retry_backoff').value
+
         self.get_logger().info("Parámetros configurados: ")
         # Crear clients de ciclo de vida para cada módulo
         for m in self.modules:
@@ -170,7 +195,7 @@ class InteractionManager(LifecycleNode):
         )
 
         # Iniciar máquina de estados en primer estado útil
-        self.state = self.STATE_ACTIVATE_FACE_DETECTOR
+        self.transition_to(ActivateFaceDetectorState)
         self.main_timer = self.create_timer(0.1, self._run_state)
         return super().on_activate(state)
 
@@ -271,111 +296,9 @@ class InteractionManager(LifecycleNode):
     # State machine
     # ------------------------------------------------------------
     def _run_state(self):
-        if self.state == self.STATE_ACTIVATE_FACE_DETECTOR:
-            if self.call_lifecycle("/face_detector", Transition.TRANSITION_ACTIVATE):
-                self.get_logger().info("Face detector activado")
-                self.attempt = 0
-                self.state = self.STATE_SEARCH_FACE
-                self.get_logger().info("Esperando detecciones de cara")
-            else:
-                self.fail_social_service_call()  # Llamada al servicio social_state con error
-
-                self.state = self.STATE_DEACTIVATE_ALL
-
-        elif self.state == self.STATE_SEARCH_FACE:
-            self.get_logger().info("Buscando cara")
-            self.best_face = self._select_best_face()
-            if self.best_face:
-                self.get_logger().info("Cara encontrada!")
-                self.state = self.STATE_TRACK_AND_AUDIO
-            elif self.attempt < self.max_attempts:
-                if self.attempt == self.max_attempts - 1:
-                    angle = 0.0
-                else:
-                    angle = 45.0 if self.attempt % 2 == 0 else -45.0
-                self._rotate_head(angle)
-                self.attempt += 1
-                self.main_timer.cancel()
-                self.wait_timer = self.create_timer(
-                    self.rotation_duration,
-                    self._on_wait_complete,
-                    callback_group=self.io_cb,
-                )
-            else:
-                self.get_logger().warn("No se encontró cara, fallback TDOA")
-                self.state = self.STATE_FALLBACK_TDOA
-                self.tdoa_angle = None
-                self.tdoa_attempts = 0
-
-                # self.state = self.STATE_TRACK_AND_AUDIO #dummy tdoa NO implementado
-
-        elif self.state == self.STATE_FALLBACK_TDOA:
-            if self.tdoa_attempts < self.fallback_max_attempts:
-                self.best_face = self._select_best_face()
-                if self.best_face:
-                    self.state = self.STATE_TRACK_AND_AUDIO
-                    return
-                angle = self.tdoa_angle
-                if angle is None:
-                    self.get_logger().warn(
-                        "Timeout esperando TDOA; reintentando fallback"
-                    )
-                    self.tdoa_attempts += 1
-                    self.main_timer.cancel()
-                    self.wait_timer = self.create_timer(
-                        self.tdoa_timeout,
-                        self._on_tdoa_wait_complete,
-                        callback_group=self.io_cb,
-                    )
-                    return
-                # Comprobar si el ángulo está dentro del límite
-
-                if abs(angle) <= self.tdoa_angle_limit:
-                    self.get_logger().info(f"Girando por TDOA: {angle:.1f}°")
-                    self._rotate_head(angle)
-
-                    self.tdoa_attempts += 1
-                    delay = self.tdoa_timeout * (
-                        self.backoff_factor ** (self.tdoa_attempts - 1)
-                    )
-                    self.main_timer.cancel()
-                    self.wait_timer = self.create_timer(
-                        self.tdoa_timeout,
-                        self._on_tdoa_wait_complete,
-                        callback_group=self.io_cb,
-                    )
-                    return
-                else:
-                    self.get_logger().warn(
-                        f"[TDOA] ángulo {angle:.1f}° fuera de límite"
-                    )
-
-            self.get_logger().warn("No se detectó persona tras TDOA, desactivando")
-            self.fail_social_service_call()  # Llamada al servicio social_state con error
-
-            self.state = self.STATE_DEACTIVATE_ALL
-
-        elif self.state == self.STATE_TRACK_AND_AUDIO:
-            self.call_lifecycle("/face_tracker", Transition.TRANSITION_ACTIVATE)
-            self.call_lifecycle("/audio_player", Transition.TRANSITION_ACTIVATE)
-            # Reproducir audio
-            goal = PlayAudio.Goal()
-            goal.filename = self.speech_file_path
-            send_goal_fut = self.audio_action.send_goal_async(goal)
-            send_goal_fut.add_done_callback(self._on_audio_goal_response)
-            # pasamos al estado de espera
-            self.state = self.STATE_WAIT_AUDIO
-
-        elif self.state == self.STATE_WAIT_AUDIO:
-            # aquí no hacemos nada hasta que llegue el callback
-            return
-        elif self.state == self.STATE_DEACTIVATE_ALL:
-            # Desactivamos todos los módulos y luego el nodo
-            if self.main_timer:
-                self.main_timer.cancel()
-                self.main_timer = None
-            self._deactivate_all_modules()
-            self.state = self.STATE_DONE
+        """Execute the current state."""
+        if self.current_state:
+            self.current_state.execute()
 
     def _get_latest_tdoa(self, timeout_sec: float) -> float | None:
         """Usa la suscripción permanente self.tdoa_sub. Espera hasta que self.tdoa_angle
@@ -408,7 +331,7 @@ class InteractionManager(LifecycleNode):
             self.wait_timer.cancel()
             self.wait_timer = None
         self.main_timer = self.create_timer(0.1, self._run_state)
-        self.state = self.STATE_FALLBACK_TDOA
+        self.transition_to(FallbackTdoaState)
 
     def _on_audio_goal_response(self, future):
         """Callback cuando el action server acepta (o no) el goal."""
@@ -418,7 +341,7 @@ class InteractionManager(LifecycleNode):
             # decides si vuelves a un estado de error o directamente deactivas
             self.fail_social_service_call()  # Llamada al servicio social_state con error
 
-            self.state = self.STATE_DEACTIVATE_ALL
+            self.transition_to(DeactivateAllState)
             return
 
         # si lo acepta, esperamos el resultado:
@@ -437,7 +360,7 @@ class InteractionManager(LifecycleNode):
             self.get_logger().error("Falló reproducción de audio")
             self.fail_social_service_call()  # Llamada al servicio social_state con error
         # ahora continuamos: desactivamos módulos y terminamos
-        self.state = self.STATE_DEACTIVATE_ALL
+        self.transition_to(DeactivateAllState)
 
     def fail_social_service_call(self):
         """Llamada al servicio social_state con estado de error."""
@@ -451,7 +374,7 @@ class InteractionManager(LifecycleNode):
             self.wait_timer.cancel()
             self.wait_timer = None
         self.main_timer = self.create_timer(0.1, self._run_state)
-        self.state = self.STATE_SEARCH_FACE
+        self.transition_to(SearchFaceState)
 
     # Funciion para apagar todos los modulos comprobando si estan activos
     def _deactivate_all_modules(self):
@@ -513,6 +436,116 @@ class InteractionManager(LifecycleNode):
             f"Publicando rotación de cabeza: {angle:.1f}° ({angle_pan:.2f} rad)"
         )
         self.head_movement_pub.publish(msg)
+
+
+class IdleState(IMState):
+    def enter(self) -> None:
+        self.manager.get_logger().info("Estado IDLE")
+
+
+class ActivateFaceDetectorState(IMState):
+    def execute(self) -> None:
+        mgr = self.manager
+        if mgr.call_lifecycle('/face_detector', Transition.TRANSITION_ACTIVATE):
+            mgr.get_logger().info('Face detector activado')
+            mgr.attempt = 0
+            mgr.transition_to(SearchFaceState)
+            mgr.get_logger().info('Esperando detecciones de cara')
+        else:
+            mgr.fail_social_service_call()
+            mgr.transition_to(DeactivateAllState)
+
+
+class SearchFaceState(IMState):
+    def execute(self) -> None:
+        mgr = self.manager
+        mgr.get_logger().info('Buscando cara')
+        mgr.best_face = mgr._select_best_face()
+        if mgr.best_face:
+            mgr.get_logger().info('Cara encontrada!')
+            mgr.transition_to(TrackAndAudioState)
+        elif mgr.attempt < mgr.max_attempts:
+            angle = 0.0 if mgr.attempt == mgr.max_attempts - 1 else (
+                45.0 if mgr.attempt % 2 == 0 else -45.0
+            )
+            mgr._rotate_head(angle)
+            mgr.attempt += 1
+            if mgr.main_timer:
+                mgr.main_timer.cancel()
+            mgr.wait_timer = mgr.create_timer(
+                mgr.rotation_duration, mgr._on_wait_complete, callback_group=mgr.io_cb
+            )
+        else:
+            mgr.get_logger().warn('No se encontró cara, fallback TDOA')
+            mgr.transition_to(FallbackTdoaState)
+            mgr.tdoa_angle = None
+            mgr.tdoa_attempts = 0
+
+
+class FallbackTdoaState(IMState):
+    def execute(self) -> None:
+        mgr = self.manager
+        if mgr.tdoa_attempts < mgr.fallback_max_attempts:
+            mgr.best_face = mgr._select_best_face()
+            if mgr.best_face:
+                mgr.transition_to(TrackAndAudioState)
+                return
+            angle = mgr.tdoa_angle
+            if angle is None:
+                mgr.get_logger().warn('Timeout esperando TDOA; reintentando fallback')
+                mgr.tdoa_attempts += 1
+                if mgr.main_timer:
+                    mgr.main_timer.cancel()
+                mgr.wait_timer = mgr.create_timer(
+                    mgr.tdoa_timeout, mgr._on_tdoa_wait_complete, callback_group=mgr.io_cb
+                )
+                return
+            if abs(angle) <= mgr.tdoa_angle_limit:
+                mgr.get_logger().info(f'Girando por TDOA: {angle:.1f}°')
+                mgr._rotate_head(angle)
+                mgr.tdoa_attempts += 1
+                if mgr.main_timer:
+                    mgr.main_timer.cancel()
+                mgr.wait_timer = mgr.create_timer(
+                    mgr.tdoa_timeout, mgr._on_tdoa_wait_complete, callback_group=mgr.io_cb
+                )
+                return
+            mgr.get_logger().warn(f'[TDOA] ángulo {angle:.1f}° fuera de límite')
+        mgr.get_logger().warn('No se detectó persona tras TDOA, desactivando')
+        mgr.fail_social_service_call()
+        mgr.transition_to(DeactivateAllState)
+
+
+class TrackAndAudioState(IMState):
+    def execute(self) -> None:
+        mgr = self.manager
+        mgr.call_lifecycle('/face_tracker', Transition.TRANSITION_ACTIVATE)
+        mgr.call_lifecycle('/audio_player', Transition.TRANSITION_ACTIVATE)
+        goal = PlayAudio.Goal()
+        goal.filename = mgr.speech_file_path
+        send_goal_fut = mgr.audio_action.send_goal_async(goal)
+        send_goal_fut.add_done_callback(mgr._on_audio_goal_response)
+        mgr.transition_to(WaitAudioState)
+
+
+class WaitAudioState(IMState):
+    def execute(self) -> None:  # wait until callbacks complete
+        pass
+
+
+class DeactivateAllState(IMState):
+    def execute(self) -> None:
+        mgr = self.manager
+        if mgr.main_timer:
+            mgr.main_timer.cancel()
+            mgr.main_timer = None
+        mgr._deactivate_all_modules()
+        mgr.transition_to(DoneState)
+
+
+class DoneState(IMState):
+    def execute(self) -> None:
+        pass
 
 
 def main(args=None):
