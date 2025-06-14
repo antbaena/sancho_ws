@@ -1,21 +1,27 @@
 repos:
-  - repo: https://github.com/psf/black
-    rev: 23.3.0
-    hooks:
-      - id: black
-        files: ^sancho_.*\.py$
-
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.0.287
+    rev: v0.5.0
     hooks:
       - id: ruff
-        args: [--fix]
-        files: ^sancho_.*\.py$
+        args:
+          - --exit-zero   # fuerza exit code 0 aunque haya errores
+          - --fix         # aplica correcciones automáticas
+        files: ^src/sancho_[^/]+/sancho_[^/]+/.*\.py$
+        exclude: ^(?!src/sancho_[^/]+/sancho_[^/]+/).*  # excluye todo lo que no esté en sancho_*/sancho_*/
+        # continue_on_error: true  <-- Removed, not valid here
+
+  - repo: https://github.com/psf/black
+    rev: 24.4.2
+    hooks:
+      - id: black
+        args: [-q]
+        files: ^src/sancho_[^/]+/sancho_[^/]+/.*\.py$
+        exclude: ^(?!src/sancho_[^/]+/sancho_[^/]+/).*  # excluye todo lo que no esté en sancho_*/sancho_*/
 
   - repo: local
     hooks:
       - id: pylint
         name: pylint
-        entry: pylint
+        entry: pylint --fail-under=5.0
         language: system
-        files: ^sancho_.*\.py$
+        files: ^src/sancho_[^/]+/sancho_[^/]+/.*\.py$

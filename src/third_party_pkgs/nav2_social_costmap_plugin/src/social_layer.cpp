@@ -157,7 +157,7 @@ namespace nav2_social_costmap_plugin
       pt.header.stamp = people_list_.header.stamp;
 
       if (!tf_->canTransform(pt.header.frame_id, global_frame,
-                             tf2_ros::fromMsg(pt.header.stamp)))
+                             tf2_ros::fromMsg(pt.header.stamp), tf2::durationFromSec(2.0)))
       {
         RCLCPP_INFO(logger_,
                     "Social layer can't transform from %s to %s",
@@ -278,7 +278,9 @@ namespace nav2_social_costmap_plugin
       people_msgs::msg::Person person = *p_it;
       double mag = sqrt(person.velocity.x * person.velocity.x +
                         person.velocity.y * person.velocity.y);
-      double angle = atan2(person.velocity.y, person.velocity.x);
+      // double angle = atan2(person.velocity.y, person.velocity.x);
+      double angle = person.velocity.z; // Usar el ángulo recibido en velocity.z
+
       double angle_right = angle - 1.57; // 1.51;
       double radius = get_radius(cutoff_, amplitude_, sigma_when_still_);
       double front_height = radius;
@@ -375,7 +377,7 @@ namespace nav2_social_costmap_plugin
           double a_right = 0.0;
           double x = bx + i * res;
           double y = by + j * res;
-          if (mag < tolerance_vel_still_)
+          if (false) //mag < tolerance_vel_still_
           {
             // PERSON STANDS STILL
             a = gaussian(x, y, cx, cy, amplitude_, sigma_when_still_,

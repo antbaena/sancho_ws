@@ -66,7 +66,7 @@ export default function SettingsPage() {
   return (
     <div className="container my-5">
       <div className="card shadow p-4 bg-white rounded">
-        <h2 className="card-title mb-4 text-primary">🛠️ Ajustes ORNbots</h2>
+        <h1 className="card-title mb-4 text-secondary"> Ajustes y Topics 🛠️</h1>
         <div className="row gx-5 gy-4">
           {/* Columna de configuración */}
           <div className="col-md-6">
