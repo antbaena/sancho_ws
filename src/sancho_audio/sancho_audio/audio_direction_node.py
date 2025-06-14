@@ -8,7 +8,8 @@ from std_msgs.msg import Float32
 from .tdoa_nodes.tdoa_gcc import gcc_phat
 
 # Import both methods
-from .tdoa_nodes.tdoa_ncc import normalized_cross_correlation
+from .tdoa_nodes import STRATEGIES, TDOAStrategy
+
 
 
 def compute_angle_from_delay(
@@ -35,6 +36,21 @@ class SoundAngleDetector(Node):
         self.sample_rate = self.get_parameter("sample_rate").value
         timer_hz = self.get_parameter("timer_hz").value
 
+        strategy_cls = STRATEGIES.get(self.method)
+        if strategy_cls is None:
+            raise ValueError(f"Método de TDOA desconocido: {self.method}")
+        if issubclass(strategy_cls, TDOAStrategy):
+            if self.method == "gcc":
+                self.strategy: TDOAStrategy = strategy_cls(
+                    sample_rate=self.sample_rate,
+                    mic_distance=self.mic_distance,
+                )
+            else:
+                self.strategy = strategy_cls(sample_rate=self.sample_rate)
+        else:
+            raise TypeError("Clase de estrategia inválida")
+
+
         # Subscriber to VAD segments
         self.sub = self.create_subscription(
             VADSegment, "/audio/vad_segment", self.vad_callback, 10
@@ -59,17 +75,9 @@ class SoundAngleDetector(Node):
         for seg in self.buffer:
             left = np.array(seg.left_channel, dtype=float)
             right = np.array(seg.right_channel, dtype=float)
-            if self.method == "gcc":
-                # GCC-PHAT returns tau
-                tau, _ = gcc_phat(
-                    left, right, fs=self.sample_rate, max_tau=self.mic_distance / 343.0
-                )
-                angle = compute_angle_from_delay(tau, self.mic_distance)
-            else:
-                # NCC returns displacement in samples
-                disp, _ = normalized_cross_correlation(left, right)
-                tau = disp / self.sample_rate
-                angle = compute_angle_from_delay(tau, self.mic_distance)
+            tau = self.strategy.compute_delay(left, right)
+            angle = compute_angle_from_delay(tau, self.mic_distance)
+
             # Publish result
             msg_out = Float32()
             msg_out.data = angle
