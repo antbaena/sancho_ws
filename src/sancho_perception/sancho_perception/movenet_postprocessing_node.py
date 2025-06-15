@@ -12,13 +12,14 @@ from geometry_msgs.msg import Pose, PoseArray, Quaternion
 from people_msgs.msg import People, Person
 from rclpy.duration import Duration
 from rclpy.lifecycle import LifecycleNode, LifecycleState, TransitionCallbackReturn
-from sancho_msgs.msg import PersonPose, PersonsPoses
 from sensor_msgs.msg import CameraInfo, Image
 from std_msgs.msg import Header
 from tf2_ros import (
     Buffer,
     TransformListener,
 )
+
+from sancho_msgs.msg import PersonPose, PersonsPoses
 
 random.seed(42)
 # Opcional: semilla para reproducibilidad
@@ -30,8 +31,7 @@ from .movenet_utils import convert_2d_to_3d, get_depth_value
 
 
 class MoveNetPostprocessingNode(LifecycleNode):
-    """
-    ROS 2 Lifecycle Node for post-processing MoveNet human pose estimations by adding 3D information.
+    """ROS 2 Lifecycle Node for post-processing MoveNet human pose estimations by adding 3D information.
 
     This node takes 2D keypoint detections from MoveNet along with depth images and converts them into
     3D skeleton representations. It handles coordinate transformation, depth filtering, 
@@ -48,7 +48,8 @@ class MoveNetPostprocessingNode(LifecycleNode):
         /people (People): Standard people tracking message format
         /human_pose/persons_poses (PoseArray): Person positions as pose array
 
-    Parameters:
+    Parameters
+    ----------
         depth_window_size (int, default=3): Window size for depth value averaging
         keypoint_score_threshold (float, default=0.4): Minimum confidence score to consider a keypoint
         target_frame (string, default="base_footprint"): Target frame for coordinate transformation
@@ -62,11 +63,14 @@ class MoveNetPostprocessingNode(LifecycleNode):
         5. Generates visualization markers and standard message formats
         6. Publishes all outputs for downstream consumption
 
-    Notes:
+    Notes
+    -----
         - The node requires at least 1/3 of the expected keypoints to be valid for a person to be published
         - Depth outlier filtering helps remove inconsistent depth readings
         - Skeleton connections follow the standard MoveNet/COCO 17-point skeleton format
+
     """
+
     def __init__(self):
         super().__init__("movenet_postprocessing_node")
         self.get_logger().info("Iniciando nodo de postprocesamiento MoveNet...")

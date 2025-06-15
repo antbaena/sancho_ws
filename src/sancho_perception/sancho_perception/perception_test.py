@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
-"""
-Nodo ROS2 para calcular métricas de inferencia con MoveNet.
+"""Nodo ROS2 para calcular métricas de inferencia con MoveNet.
 Se suscribe a un topic de imágenes, aplica MoveNet y publica el tiempo medio de inferencia.
 """
 import time
+
 import cv2
 import rclpy
 from cv_bridge import CvBridge, CvBridgeError
 from rclpy.node import Node
 from sensor_msgs.msg import Image
-from std_msgs.msg import Header
 
-from .movenet_utils import load_model, run_inference_on_image, process_detections
+from .movenet_utils import load_model, process_detections, run_inference_on_image
+
 
 class InferenceNode(Node):
     def __init__(self):

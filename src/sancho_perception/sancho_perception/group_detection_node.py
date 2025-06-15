@@ -7,10 +7,11 @@ from geometry_msgs.msg import Point, PoseArray, Quaternion
 from rclpy.duration import Duration
 from rclpy.lifecycle import LifecycleNode, LifecycleState, TransitionCallbackReturn
 from rclpy.qos import QoSProfile
-from sancho_msgs.msg import GroupInfo
 from sklearn.cluster import DBSCAN
 from sklearn.metrics import silhouette_score
 from visualization_msgs.msg import Marker, MarkerArray
+
+from sancho_msgs.msg import GroupInfo
 
 
 def bounding_box_area(points: np.ndarray) -> float:
@@ -21,8 +22,7 @@ def bounding_box_area(points: np.ndarray) -> float:
 
 
 class GroupDetectionNode(LifecycleNode):
-    """
-    A ROS2 lifecycle node that detects groups of people based on spatial clustering.
+    """A ROS2 lifecycle node that detects groups of people based on spatial clustering.
 
     This node subscribes to pose arrays containing detected persons, applies DBSCAN clustering
     to identify groups, and publishes information about detected stable groups. The node
@@ -37,7 +37,8 @@ class GroupDetectionNode(LifecycleNode):
     6. Publishing group information when a stable group has been detected for a minimum duration
     7. Visualizing the group with a marker in RViz
 
-    Parameters:
+    Parameters
+    ----------
         group_distance_threshold (float, default: 1.0): Maximum distance between points in a cluster
         min_group_duration (float, default: 3.0): Time in seconds a group must be stable before detection
         group_centroid_tolerance (float, default: 0.5): Maximum allowed movement of cluster centroid
@@ -63,7 +64,9 @@ class GroupDetectionNode(LifecycleNode):
         on_activate: Creates subscriptions and timers
         on_deactivate: Cancels timers and destroys subscriptions
         on_cleanup: Cleans up all resources
+
     """
+
     def __init__(self):
         super().__init__("group_detection_lifecycle")
         self.get_logger().info(

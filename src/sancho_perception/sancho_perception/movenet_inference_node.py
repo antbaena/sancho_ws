@@ -12,24 +12,25 @@ from cv_bridge import CvBridge, CvBridgeError
 from rcl_interfaces.msg import SetParametersResult
 from rclpy.lifecycle import LifecycleNode, LifecycleState, TransitionCallbackReturn
 from rclpy.qos import QoSProfile
-from sancho_msgs.msg import PersonPose, PersonsPoses
 from sensor_msgs.msg import Image
 from std_msgs.msg import Float32
 from visualization_msgs.msg import MarkerArray
+
+from sancho_msgs.msg import PersonPose, PersonsPoses
 
 from .movenet_utils import load_model, process_detections, run_inference_on_image
 
 
 class MoveNetInferenceNode(LifecycleNode):
-    """
-    MoveNetInferenceNode - ROS2 Lifecycle Node for person pose detection using MoveNet.
+    """MoveNetInferenceNode - ROS2 Lifecycle Node for person pose detection using MoveNet.
 
     This node performs human pose detection on incoming camera images using Google's MoveNet model.
     It processes images from a subscribed topic, runs pose detection inference, and publishes pose
     data for detected persons. Multiple visualization options are available including OpenCV markers
     and RViz markers.
 
-    Parameters:
+    Parameters
+    ----------
         inference.mirror (bool, default=False): Whether to mirror input images horizontally
         inference.input_size (int, default=256): Input resolution for the neural network
         inference.model_url (str): URL to the TensorFlow Hub MoveNet model
@@ -58,7 +59,9 @@ class MoveNetInferenceNode(LifecycleNode):
         deactivate: Unsubscribes from image topic
         cleanup: Releases resources
         shutdown: Cleans up resources before shutdown
+
     """
+
     def __init__(self):
         super().__init__("movenet_inference_node")
         self.get_logger().info("Iniciando nodo de inferencia MoveNet...")
