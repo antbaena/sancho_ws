@@ -19,8 +19,7 @@ class State(Enum):
 
 
 class HRIHeadNode(Node):
-    """
-    ROS 2 node to control the robot's head for Human-Robot Interaction.
+    """ROS 2 node to control the robot's head for Human-Robot Interaction.
 
     This node provides functionality to move the robot head in pan and tilt 
     motions. It operates in two main states:
@@ -31,7 +30,7 @@ class HRIHeadNode(Node):
     that get converted to pan and tilt angles. It also provides timeout 
     functionality to return to idle state when tracking is no longer active.
 
-    Parameters:
+    Parameters
     ----------
     idle_move_min_interval : float
         Minimum interval (seconds) between random movements in idle state
@@ -70,7 +69,9 @@ class HRIHeadNode(Node):
     --------
     /wxxms/set_operating_modes (OperatingModes)
         Service to set joint operating modes
+
     """
+
     def __init__(self):
         super().__init__("hri_head_node")
 
