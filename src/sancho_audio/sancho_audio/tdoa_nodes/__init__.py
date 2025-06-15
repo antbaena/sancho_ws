@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Dict, Type
-
 import numpy as np
 
 from .tdoa_gcc import gcc_phat
@@ -46,7 +44,7 @@ class NccStrategy(TDOAStrategy):
 
 
 #: Registry of available strategies keyed by method name
-STRATEGIES: Dict[str, Type[TDOAStrategy]] = {
+STRATEGIES: dict[str, type[TDOAStrategy]] = {
     "gcc": GccStrategy,
     "ncc": NccStrategy,
 }

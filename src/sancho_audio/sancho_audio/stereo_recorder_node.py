@@ -4,12 +4,12 @@ import wave
 import numpy as np
 import rclpy
 from rclpy.node import Node
+
 from sancho_msgs.msg import AudioData
 
 
 class QuickChecker(Node):
-    """
-    A ROS2 node that records audio data from a specified topic for a set duration.
+    """A ROS2 node that records audio data from a specified topic for a set duration.
 
     This node subscribes to audio data messages, accumulates them until a specified duration
     is reached, then saves separate WAV files for each audio channel.
@@ -21,7 +21,9 @@ class QuickChecker(Node):
         buf_ch1 (list): Buffer to accumulate audio data for first channel.
         buf_ch2 (list): Buffer to accumulate audio data for second channel.
         total_frames (int): Counter for the total frames accumulated so far.
+
     """
+
     def __init__(self):
         super().__init__("quick_checker")
         self.sub = self.create_subscription(AudioData, "/audio/raw", self.cb, 10)

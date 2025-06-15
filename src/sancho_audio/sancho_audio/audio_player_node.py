@@ -4,12 +4,12 @@ import rclpy
 from playsound import PlaysoundException, playsound
 from rclpy.action import ActionServer, CancelResponse, GoalResponse
 from rclpy.lifecycle import LifecycleNode, State, TransitionCallbackReturn
+
 from sancho_msgs.action import PlayAudio
 
 
 class AudioPlayer(LifecycleNode):
-    """
-    Audio Player Node for ROS 2 using lifecycle management.
+    """Audio Player Node for ROS 2 using lifecycle management.
 
     This node provides an action server to play audio files in WAV or MP3 formats.
     It follows the managed lifecycle pattern, allowing for proper initialization,
@@ -30,6 +30,7 @@ class AudioPlayer(LifecycleNode):
         - playsound library for audio playback
         - PlayAudio action type
     """
+
     def __init__(self):
         super().__init__("audio_player_lifecycle")
 

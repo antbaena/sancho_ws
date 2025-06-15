@@ -10,12 +10,12 @@ from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.node import Node
 from rclpy.parameter import ParameterType
 from rclpy.qos import HistoryPolicy, QoSProfile, ReliabilityPolicy
+
 from sancho_msgs.msg import AudioData, VADSegment
 
 
 class VADDetectorNode(Node):
-    """
-    Voice Activity Detection (VAD) node for ROS2.
+    """Voice Activity Detection (VAD) node for ROS2.
 
     This node processes incoming audio data to detect segments containing speech
     using the pyannote.audio library. It analyzes chunks of audio and publishes
@@ -31,7 +31,8 @@ class VADDetectorNode(Node):
     - Support for stereo audio processing
     - Configurable model selection from Hugging Face
 
-    Parameters:
+    Parameters
+    ----------
         sample_rate (int): Sampling rate of incoming audio (default: 48000)
         chunk_duration (float): Duration in seconds of each analysis chunk (default: 1.0)
         input_topic (str): ROS topic for raw audio input (default: "/audio/raw")
@@ -44,7 +45,9 @@ class VADDetectorNode(Node):
 
     Publishes:
         VADSegment: Detected voice activity segments with left/right audio channels and timing info
+
     """
+
     def __init__(self):
         super().__init__("vad_detector")
 

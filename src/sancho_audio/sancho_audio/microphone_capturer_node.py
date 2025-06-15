@@ -5,14 +5,14 @@ import numpy as np
 import pyaudio
 import rclpy
 from rclpy.node import Node
+from std_msgs.msg import Header
+
 from sancho_msgs.msg import AudioData
 from sancho_msgs.srv import GetNoiseFloor
-from std_msgs.msg import Header
 
 
 class MicrophoneNode(Node):
-    """
-    A ROS2 node for capturing audio from a microphone device and publishing it as AudioData messages.
+    """A ROS2 node for capturing audio from a microphone device and publishing it as AudioData messages.
 
     This node performs the following tasks:
     - Searches for an audio input device containing a specified string in its name
@@ -21,7 +21,7 @@ class MicrophoneNode(Node):
     - Publishes the audio data to a configurable ROS2 topic
     - Provides a service to retrieve the current noise floor value
 
-    Parameters:
+    Parameters
     ----------
     device_search_name : str, default: "ORBBEC"
         Substring to search for in device names to find the target microphone
@@ -48,7 +48,9 @@ class MicrophoneNode(Node):
     ---------
     RuntimeError
         If the specified microphone device cannot be found
+
     """
+
     def __init__(self):
         super().__init__("microphone_capturer_node")
 
