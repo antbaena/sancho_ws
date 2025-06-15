@@ -4,24 +4,18 @@ import threading
 
 import rclpy
 import rclpy.wait_for_message
-from sancho_msgs.msg import FaceArray
-from sancho_msgs.action import PlayAudio
-from std_msgs.msg import Float32
-
 from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.lifecycle import LifecycleNode, TransitionCallbackReturn
 from rclpy.qos import QoSProfile, ReliabilityPolicy
-from sancho_msgs.action import PlayAudio
-from sancho_msgs.msg import FaceArray
-from sancho_msgs.srv import SocialState
 from std_msgs.msg import Float32
 from tf_transformations import (
     quaternion_from_euler,  # Asegúrate de que este paquete está instalado
 )
 
-
-from tf_transformations import quaternion_from_euler  # Asegúrate de que este paquete está instalado
+from sancho_msgs.action import PlayAudio
+from sancho_msgs.msg import FaceArray
+from sancho_msgs.srv import SocialState
 
 
 class IMState:
@@ -40,8 +34,7 @@ class IMState:
         """Cleanup executed when leaving the state."""
 
 class InteractionManager(LifecycleNode):
-    """
-    Manages the interaction flow of a robot with a user by coordinating various modules
+    """Manages the interaction flow of a robot with a user by coordinating various modules
     such as face detection, face tracking, audio processing, and head movement.
 
     This class implements a ROS 2 LifecycleNode, allowing it to be managed (configured,
@@ -65,7 +58,8 @@ class InteractionManager(LifecycleNode):
     -   **Social State Reporting:** Communicates the status of the social interaction (ready,
         finished, error) via a ROS 2 service client.
 
-    Parameters:
+    Parameters
+    ----------
         -   `face_size_threshold`: Minimum relative width of a face to be considered valid.
         -   `face_confidence_threshold`: Minimum confidence score for a face detection.
         -   `max_face_attempts`: Number of attempts to find a face before fallback.
@@ -100,7 +94,9 @@ class InteractionManager(LifecycleNode):
     3.  If no face is found, falling back to TDOA to locate a sound source.
     4.  Tracking the face (or orienting via TDOA) and playing an audio message.
     5.  Deactivating all modules and returning to an idle state.
+
     """
+
     # Estados de la state machine
     (STATE_SOCIAL_READY, STATE_SOCIAL_FINISHED, STATE_SOCIAL_ERROR) = range(3)
 
