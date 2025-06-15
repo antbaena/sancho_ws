@@ -14,7 +14,6 @@ from rclpy.action import ActionClient
 from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.duration import Duration
 from rclpy.node import Node
-from sancho_msgs.srv import SetHome
 from tf2_ros import (
     Buffer,
     ConnectivityException,
@@ -24,10 +23,11 @@ from tf2_ros import (
 )
 from tf_transformations import quaternion_from_euler
 
+from sancho_msgs.srv import SetHome
+
 
 class RoamingNode(Node):
-    """
-    RoamingNode: Autonomous Navigation Node for Robot Exploration
+    """RoamingNode: Autonomous Navigation Node for Robot Exploration
 
     This ROS2 node implements an autonomous roaming behavior that allows a robot to navigate
     randomly within an environment while respecting navigation constraints. The node generates
@@ -46,7 +46,8 @@ class RoamingNode(Node):
     - NavigateToPose action client for executing navigation
     - ComputePathToPose action client for path validation
 
-    Parameters:
+    Parameters
+    ----------
         frame_id (string): Reference frame for navigation, default "map"
         use_local_window (bool): Whether to generate goals within a local window around robot
         local_range_x (float): X-range of local window in meters
@@ -65,7 +66,9 @@ class RoamingNode(Node):
 
     The node begins by initializing a home position based on the robot's starting location
     and then alternates between random exploration and returning home when necessary.
+
     """
+
     def __init__(self):
         super().__init__("roaming_node")
         self.callback_group = ReentrantCallbackGroup()
