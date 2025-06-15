@@ -9,14 +9,14 @@ from lifecycle_msgs.msg import State
 from rclpy.executors import SingleThreadedExecutor
 from rclpy.lifecycle import LifecycleNode, TransitionCallbackReturn
 from rclpy.qos import QoSPresetProfiles
-from sancho_msgs.msg import FaceArray
 from sensor_msgs.msg import CameraInfo, JointState
 from std_msgs.msg import Header
 
+from sancho_msgs.msg import FaceArray
+
 
 class FaceTrackerLifecycle(LifecycleNode):
-    """
-    A ROS 2 lifecycle node for tracking faces and controlling a robot's pan-tilt head mechanism.
+    """A ROS 2 lifecycle node for tracking faces and controlling a robot's pan-tilt head mechanism.
 
     This node subscribes to face detection messages and camera information, then publishes
     head position commands to keep a detected face centered in the camera view. It uses a
@@ -28,7 +28,8 @@ class FaceTrackerLifecycle(LifecycleNode):
         - Activate: Creates subscriptions and control timer
         - Deactivate: Cleans up subscriptions and timer
 
-    Parameters:
+    Parameters
+    ----------
         face_topic (str): Topic for face detection input
         head_goal_topic (str): Topic for head position goal output
         camera_info_topic (str): Topic for camera intrinsic parameters
@@ -50,7 +51,9 @@ class FaceTrackerLifecycle(LifecycleNode):
 
     Publishes:
         - Head position goals (PoseStamped)
+
     """
+
     def __init__(self):
         super().__init__("face_tracker_lifecycle")
 

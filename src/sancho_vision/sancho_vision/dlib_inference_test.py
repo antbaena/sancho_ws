@@ -5,22 +5,23 @@ Se suscribe a un topic de imágenes, aplica Dlib y publica el tiempo medio de in
 import time
 
 import cv2
-import dlib
 import rclpy
 from cv_bridge import CvBridge, CvBridgeError
 from rclpy.node import Node
 from sensor_msgs.msg import Image
 
+import dlib
+
 
 class DlibInferenceNode(Node):
-    """
-    A ROS2 node for face detection using Dlib's CNN face detector.
+    """A ROS2 node for face detection using Dlib's CNN face detector.
 
     This node subscribes to an image topic, performs face detection using Dlib's
     CNN-based face detector, and publishes an annotated image with bounding boxes
     around detected faces. It also logs performance metrics for inference time.
 
-    Parameters:
+    Parameters
+    ----------
         inference.upsample_times (int): Number of times to upsample the image during detection.
                                         Higher values can detect smaller faces but increase processing time.
                                         Default: 1
@@ -40,7 +41,9 @@ class DlibInferenceNode(Node):
         - cv_bridge
         - OpenCV
         - ROS2 Image message type
+
     """
+
     def __init__(self):
         super().__init__("dlib_inference_node")
         self.bridge = CvBridge()

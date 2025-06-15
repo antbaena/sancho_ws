@@ -7,25 +7,26 @@
 - Umbral de confianza y NMS configurable
 - Visualización opcional
 """
+import os
+
 import cv2
 import numpy as np
 import rclpy
+from ament_index_python.packages import get_package_share_directory
 from cv_bridge import CvBridge, CvBridgeError
 from geometry_msgs.msg import Point
 from rclpy.lifecycle import LifecycleNode, TransitionCallbackReturn
 from rclpy.qos import QoSProfile
-from sancho_msgs.msg import Face, FaceArray
 from sensor_msgs.msg import Image
+
 import dlib
-import os
-from ament_index_python.packages import get_package_share_directory
+from sancho_msgs.msg import Face, FaceArray
 
 package_path = get_package_share_directory('sancho_vision')
 
 
 class FaceDetectorLifecycleNode(LifecycleNode):
-    """
-    FaceDetectorLifecycleNode: A ROS 2 managed lifecycle node for real-time face detection.
+    """FaceDetectorLifecycleNode: A ROS 2 managed lifecycle node for real-time face detection.
 
     This node subscribes to camera images and publishes detected faces as FaceArray messages.
     It implements the lifecycle node state machine (configure, activate, deactivate, cleanup)
@@ -38,7 +39,8 @@ class FaceDetectorLifecycleNode(LifecycleNode):
     - Configurable downscaling for performance optimization
     - Rate-limited processing to manage computational load
 
-    Parameters:
+    Parameters
+    ----------
         image_topic (str): Topic name for input camera images
         detections_topic (str): Topic name for publishing face detections
         use_cnn (bool): Whether to use CNN-based detector (True) or HOG-based detector (False)
@@ -63,7 +65,9 @@ class FaceDetectorLifecycleNode(LifecycleNode):
         on_activate: Creates subscribers and starts processing timer
         on_deactivate: Stops processing and removes subscribers
         on_cleanup: Cleans up all resources
+
     """
+
     def __init__(self):
         super().__init__("face_detector_lifecycle")
 
