@@ -1,12 +1,5 @@
 opencv-python
 mediapipe
-numpy
-rclpy
-cv_bridge
-geometry_msgs
-lifecycle_msgs
-sensor_msgs
-sancho_msgs
-std_msgs
+numpy<2
 tf-transformations
 dlib

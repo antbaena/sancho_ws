@@ -1,7 +1,2 @@
-rclpy
-action_msgs
-geometry_msgs
-nav2_msgs
-sancho_msgs
 tf2_ros
 tf-transformations
