@@ -17,6 +17,7 @@ from nav2_msgs.srv import ManageLifecycleNodes
 from rclpy.action import ActionClient
 from rclpy.node import Node
 from rclpy.qos import QoSProfile
+
 from sancho_msgs.srv import SocialState
 
 
@@ -27,8 +28,7 @@ class OrchestratorState:
 
 
 class OrchestratorNode(Node):
-    """
-    A ROS2 node that orchestrates robot behavior for group detection, navigation, and social interaction.
+    """A ROS2 node that orchestrates robot behavior for group detection, navigation, and social interaction.
 
     This node manages the state machine of a robot that:
     1. Searches for groups (BUSCANDO state)
@@ -38,7 +38,8 @@ class OrchestratorNode(Node):
     The orchestrator manages lifecycle transitions between different nodes (group detection,
     navigation, social interaction), handles timeouts, and coordinates the overall robot behavior.
 
-    Parameters:
+    Parameters
+    ----------
         navigation_timeout (float): Maximum time (seconds) allowed for navigation (default: 20.0)
         social_timeout (float): Maximum time (seconds) allowed for social interaction (default: 30.0)
         group_waypoint_topic (str): Topic to receive group waypoints (default: "/group_waypoint")
@@ -54,7 +55,9 @@ class OrchestratorNode(Node):
 
     The node manages transitions between these states, activating and deactivating
     appropriate components as needed, and handling timeouts and error conditions.
+
     """
+
     (STATE_SOCIAL_READY, STATE_SOCIAL_FINISHED, STATE_SOCIAL_ERROR) = range(3)
 
     def __init__(self, executor):
