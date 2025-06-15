@@ -3,7 +3,7 @@ import os
 import threading
 
 import rclpy
-import rclpy.wait_for_message
+from ament_index_python.packages import get_package_share_directory
 from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.lifecycle import LifecycleNode, TransitionCallbackReturn
