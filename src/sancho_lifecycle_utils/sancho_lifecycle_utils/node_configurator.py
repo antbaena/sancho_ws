@@ -17,6 +17,39 @@ from rclpy.node import Node
 
 
 class NodeConfigurator(Node):
+    """
+    NodeConfigurator for automatically transitioning ROS2 managed nodes to 'configured' state.
+
+    This node takes a list of node names as a parameter and attempts to transition each of them
+    to their 'configured' lifecycle state. It works by periodically:
+    1. Querying each node's available transitions
+    2. Finding the 'configure' transition ID when available
+    3. Triggering the 'configure' transition
+    4. Repeating until all nodes are successfully configured
+
+    The node shuts down automatically once all target nodes have been successfully configured.
+
+    Parameters:
+    ----------
+    node_names : list of str
+        List of node names to configure. Each node must implement the lifecycle management
+        services (get_available_transitions and change_state).
+
+    Services Used:
+    ------------
+    For each node in node_names, the following services are called:
+    - /{node_name}/get_available_transitions : Get available lifecycle transitions
+    - /{node_name}/change_state : Trigger a lifecycle transition
+
+    Behavior:
+    --------
+    - At initialization, all specified nodes are marked as pending configuration.
+    - Every second, the node checks each pending node:
+      - First, it queries available transitions to find the configure transition ID
+      - Then it attempts to execute the configure transition when ready
+      - Once a node is successfully configured, it is removed from the pending list
+    - The node automatically shuts down when all nodes are configured.
+    """
     def __init__(self):
         super().__init__("node_configurator")
 

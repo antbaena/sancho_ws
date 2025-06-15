@@ -15,6 +15,42 @@ from std_msgs.msg import Header
 
 
 class FaceTrackerLifecycle(LifecycleNode):
+    """
+    A ROS 2 lifecycle node for tracking faces and controlling a robot's pan-tilt head mechanism.
+
+    This node subscribes to face detection messages and camera information, then publishes
+    head position commands to keep a detected face centered in the camera view. It uses a
+    simple proportional control algorithm with exponential moving average filtering for
+    smoother tracking.
+
+    Lifecycle States:
+        - Configure: Sets up parameters and publishers
+        - Activate: Creates subscriptions and control timer
+        - Deactivate: Cleans up subscriptions and timer
+
+    Parameters:
+        face_topic (str): Topic for face detection input
+        head_goal_topic (str): Topic for head position goal output
+        camera_info_topic (str): Topic for camera intrinsic parameters
+        camera_frame (str): Camera frame ID for coordinate transformations
+        control_rate (float): Control loop frequency in Hz
+        ema_alpha (float): Alpha parameter for exponential moving average filter (0-1)
+        p_gain_pan (float): Proportional gain for pan control
+        p_gain_tilt (float): Proportional gain for tilt control
+        timeout_no_detection (float): Time in seconds before tracking stops after no detections
+        pan_limit_deg (float): Maximum pan angle in degrees
+        tilt_limit_deg (float): Maximum tilt angle in degrees
+        pan_joint (str): Name of the pan joint in joint_states
+        tilt_joint (str): Name of the tilt joint in joint_states
+
+    Subscribes:
+        - Face detections (FaceArray)
+        - Camera calibration info (CameraInfo)
+        - Joint states (JointState)
+
+    Publishes:
+        - Head position goals (PoseStamped)
+    """
     def __init__(self):
         super().__init__("face_tracker_lifecycle")
 

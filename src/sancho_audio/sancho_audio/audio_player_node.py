@@ -8,6 +8,28 @@ from sancho_msgs.action import PlayAudio
 
 
 class AudioPlayer(LifecycleNode):
+    """
+    Audio Player Node for ROS 2 using lifecycle management.
+
+    This node provides an action server to play audio files in WAV or MP3 formats.
+    It follows the managed lifecycle pattern, allowing for proper initialization,
+    activation, deactivation and cleanup.
+
+    The node exposes a 'play_audio' action that accepts a file path and plays
+    the audio using the playsound library. The action server is only available
+    when the node is in the active state.
+
+    Usage:
+        1. Configure the node to initialize internal structures
+        2. Activate the node to start the action server
+        3. Send play_audio actions with valid audio file paths
+        4. Deactivate when done to clean up resources
+
+    Dependencies:
+        - ROS 2 lifecycle
+        - playsound library for audio playback
+        - PlayAudio action type
+    """
     def __init__(self):
         super().__init__("audio_player_lifecycle")
 

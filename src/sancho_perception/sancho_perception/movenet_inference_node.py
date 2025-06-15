@@ -21,6 +21,44 @@ from .movenet_utils import load_model, process_detections, run_inference_on_imag
 
 
 class MoveNetInferenceNode(LifecycleNode):
+    """
+    MoveNetInferenceNode - ROS2 Lifecycle Node for person pose detection using MoveNet.
+
+    This node performs human pose detection on incoming camera images using Google's MoveNet model.
+    It processes images from a subscribed topic, runs pose detection inference, and publishes pose
+    data for detected persons. Multiple visualization options are available including OpenCV markers
+    and RViz markers.
+
+    Parameters:
+        inference.mirror (bool, default=False): Whether to mirror input images horizontally
+        inference.input_size (int, default=256): Input resolution for the neural network
+        inference.model_url (str): URL to the TensorFlow Hub MoveNet model
+        inference.keypoint_score_threshold (float, default=0.4): Confidence threshold for keypoints
+        inference.min_keypoints (int, default=9): Minimum number of keypoints for valid detection
+        performance.frame_skip (int, default=1): Process every Nth frame to control performance
+        viz.visualize_markers (bool, default=True): Whether to publish visualization markers
+        viz.image_topic (str, default="astra_camera/camera/color/image_raw"): Input image topic
+        viz.cv_color (list, default=[0,255,0]): BGR color for keypoint markers
+        viz.text_color (list, default=[255,0,0]): BGR color for keypoint labels
+        debug.enable_video (bool, default=False): Whether to save debug video
+        debug.video_path (str, default="/tmp/movenet_debug.avi"): Path to save debug video
+
+    Published Topics:
+        /movenet/raw_detections (PersonsPoses): Detected person poses
+        <image_topic>/markers (Image): Visualization image with pose markers
+        /movenet/markers_rviz (MarkerArray): Markers for RViz visualization
+        /movenet/inference_time (Float32): Inference duration in milliseconds
+
+    Subscribed Topics:
+        <image_topic> (Image): Input camera images
+
+    Lifecycle States:
+        configure: Loads model and initializes publishers
+        activate: Subscribes to image topic and starts processing
+        deactivate: Unsubscribes from image topic
+        cleanup: Releases resources
+        shutdown: Cleans up resources before shutdown
+    """
     def __init__(self):
         super().__init__("movenet_inference_node")
         self.get_logger().info("Iniciando nodo de inferencia MoveNet...")

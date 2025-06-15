@@ -14,6 +14,37 @@ from sancho_msgs.msg import AudioData, VADSegment
 
 
 class VADDetectorNode(Node):
+    """
+    Voice Activity Detection (VAD) node for ROS2.
+
+    This node processes incoming audio data to detect segments containing speech
+    using the pyannote.audio library. It analyzes chunks of audio and publishes
+    detected voice segments.
+
+    The node:
+    1. Receives raw audio data from a configurable topic
+    2. Processes the audio using a Hugging Face VAD model
+    3. Publishes detected speech segments with timestamps
+
+    Features:
+    - Dynamic parameter reconfiguration
+    - Support for stereo audio processing
+    - Configurable model selection from Hugging Face
+
+    Parameters:
+        sample_rate (int): Sampling rate of incoming audio (default: 48000)
+        chunk_duration (float): Duration in seconds of each analysis chunk (default: 1.0)
+        input_topic (str): ROS topic for raw audio input (default: "/audio/raw")
+        output_topic (str): ROS topic for VAD segments output (default: "/audio/vad_segment")
+        model_name (str): Hugging Face model for VAD (default: "pyannote/voice-activity-detection")
+        hf_auth_token (str): Hugging Face authentication token (default: "None")
+
+    Subscribes:
+        AudioData: Raw audio data containing interleaved stereo samples
+
+    Publishes:
+        VADSegment: Detected voice activity segments with left/right audio channels and timing info
+    """
     def __init__(self):
         super().__init__("vad_detector")
 

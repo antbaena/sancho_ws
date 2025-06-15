@@ -13,6 +13,34 @@ from sensor_msgs.msg import Image
 
 
 class DlibInferenceNode(Node):
+    """
+    A ROS2 node for face detection using Dlib's CNN face detector.
+
+    This node subscribes to an image topic, performs face detection using Dlib's
+    CNN-based face detector, and publishes an annotated image with bounding boxes
+    around detected faces. It also logs performance metrics for inference time.
+
+    Parameters:
+        inference.upsample_times (int): Number of times to upsample the image during detection.
+                                        Higher values can detect smaller faces but increase processing time.
+                                        Default: 1
+        inference.input_topic (str): Topic name for receiving input images.
+                                     Default: "/dlib/relay_image"
+        inference.output_topic (str): Topic name for publishing annotated images.
+                                      Default: "/dlib/detections"
+
+    Subscribes:
+        Image: Receives camera images for processing on the input topic.
+
+    Publishes:
+        Image: Outputs annotated images with face detections on the output topic.
+
+    Dependencies:
+        - dlib
+        - cv_bridge
+        - OpenCV
+        - ROS2 Image message type
+    """
     def __init__(self):
         super().__init__("dlib_inference_node")
         self.bridge = CvBridge()
@@ -38,7 +66,7 @@ class DlibInferenceNode(Node):
 
         # Inicializar detector
         up = int(self.get_parameter("inference.upsample_times").value)
-        self.detector = dlib.get_frontal_face_detector()
+        self.detector = dlib.cnn_face_detection_model_v1("/home/ubuntu/sancho_ws/src/sancho_vision/models/mmod_human_face_detector.dat")
         self.upsample_times = up
         self.get_logger().info(f"Dlib HOG detector inicializado (upsample_times={up})")
 

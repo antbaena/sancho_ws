@@ -40,18 +40,68 @@ class IMState:
         """Cleanup executed when leaving the state."""
 
 class InteractionManager(LifecycleNode):
+    """
+    Manages the interaction flow of a robot with a user by coordinating various modules
+    such as face detection, face tracking, audio processing, and head movement.
 
+    This class implements a ROS 2 LifecycleNode, allowing it to be managed (configured,
+    activated, deactivated, cleaned up) by a lifecycle manager. It operates as a state
+    machine, transitioning through different states to achieve a complete interaction
+    sequence: detecting a user, orienting towards them, playing an audio message,
+    and then returning to an idle state.
+
+    Key functionalities:
+    -   **State Machine:** Controls the interaction logic through a series of defined states.
+    -   **Module Management:** Manages the lifecycle (activation/deactivation) of external
+        ROS 2 nodes (e.g., face detector, face tracker, audio player).
+    -   **Face Detection & Selection:** Subscribes to face detection messages and selects
+        the "best" face based on confidence and size thresholds.
+    -   **Sound Source Localization (TDOA):** Subscribes to TDOA (Time Difference of Arrival)
+        angle data to orient the robot's head towards a sound source as a fallback mechanism.
+    -   **Head Movement:** Publishes `PoseStamped` messages to control the robot's head
+        orientation.
+    -   **Audio Playback:** Uses a ROS 2 action client to request playback of pre-recorded
+        audio messages.
+    -   **Social State Reporting:** Communicates the status of the social interaction (ready,
+        finished, error) via a ROS 2 service client.
+
+    Parameters:
+        -   `face_size_threshold`: Minimum relative width of a face to be considered valid.
+        -   `face_confidence_threshold`: Minimum confidence score for a face detection.
+        -   `max_face_attempts`: Number of attempts to find a face before fallback.
+        -   `tdoa_angle_limit`: Maximum absolute TDOA angle to consider for head rotation.
+        -   `rotation_speed`: (Not directly used in this snippet, but declared) Speed for head rotation.
+        -   `rotation_duration`: (Not directly used in this snippet, but declared) Duration for head rotation.
+        -   `head_movement_topic`: Topic for publishing head movement commands.
+        -   `audio_angle_topic`: Topic for TDOA angle subscription.
+        -   `lifecycle_timeout`: Default timeout for lifecycle service calls.
+        -   `tdoa_timeout`: Timeout for waiting for a TDOA message.
+        -   `fallback_max_attempts`: Maximum attempts for fallback mechanisms.
+        -   `fallback_retry_backoff`: Exponential backoff factor for retries.
+        -   `face_detection_topic`: Topic for face detection messages.
+
+    Subscriptions:
+        -   `face_detection_topic` (sensor_interfaces/msg/FaceArray): Receives face detections.
+        -   `audio_angle_topic` (std_msgs/msg/Float32): Receives TDOA angle.
+
+    Publishers:
+        -   `head_movement_topic` (geometry_msgs/msg/PoseStamped): Publishes head orientation goals.
+
+    Action Clients:
+        -   `/play_audio` (sancho_interfaces/action/PlayAudio): To request audio playback.
+
+    Service Clients:
+        -   `{module_name}/change_state` (lifecycle_msgs/srv/ChangeState): To manage lifecycle of modules.
+        -   `/social_state` (sancho_interfaces/srv/SocialState): To report social interaction status.
+
+    The interaction flow typically involves:
+    1.  Activating the face detector.
+    2.  Searching for a face.
+    3.  If no face is found, falling back to TDOA to locate a sound source.
+    4.  Tracking the face (or orienting via TDOA) and playing an audio message.
+    5.  Deactivating all modules and returning to an idle state.
+    """
     # Estados de la state machine
-    (
-        STATE_IDLE,
-        STATE_ACTIVATE_FACE_DETECTOR,
-        STATE_SEARCH_FACE,
-        STATE_FALLBACK_TDOA,
-        STATE_TRACK_AND_AUDIO,
-        STATE_DEACTIVATE_ALL,
-        STATE_DONE,
-        STATE_WAIT_AUDIO,
-    ) = range(8)
     (STATE_SOCIAL_READY, STATE_SOCIAL_FINISHED, STATE_SOCIAL_ERROR) = range(3)
 
     def __init__(self):

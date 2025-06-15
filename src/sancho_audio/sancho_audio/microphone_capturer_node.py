@@ -11,6 +11,44 @@ from std_msgs.msg import Header
 
 
 class MicrophoneNode(Node):
+    """
+    A ROS2 node for capturing audio from a microphone device and publishing it as AudioData messages.
+
+    This node performs the following tasks:
+    - Searches for an audio input device containing a specified string in its name
+    - Captures audio data in chunks from the selected device
+    - Calculates a running noise floor estimation using exponential moving average (EMA)
+    - Publishes the audio data to a configurable ROS2 topic
+    - Provides a service to retrieve the current noise floor value
+
+    Parameters:
+    ----------
+    device_search_name : str, default: "ORBBEC"
+        Substring to search for in device names to find the target microphone
+    chunk_size : int, default: 1024
+        Number of audio frames to capture in each read operation
+    topic_name : str, default: "/audio/raw"
+        ROS2 topic name for publishing captured audio data
+    frame_id : str, default: "microphone_frame"
+        Frame ID to use in the header of published messages
+    noise_floor_alpha : float, default: 0.01
+        EMA coefficient for noise floor calculation (0-1, smaller = slower adaptation)
+
+    Published Topics:
+    --------------
+    <topic_name> (AudioData)
+        Raw audio data captured from the microphone
+
+    Services:
+    -------
+    /get_noise_floor (GetNoiseFloor)
+        Returns the current noise floor level estimation
+
+    Exceptions:
+    ---------
+    RuntimeError
+        If the specified microphone device cannot be found
+    """
     def __init__(self):
         super().__init__("microphone_capturer_node")
 

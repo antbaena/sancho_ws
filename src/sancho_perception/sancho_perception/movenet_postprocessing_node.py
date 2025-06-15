@@ -30,6 +30,43 @@ from .movenet_utils import convert_2d_to_3d, get_depth_value
 
 
 class MoveNetPostprocessingNode(LifecycleNode):
+    """
+    ROS 2 Lifecycle Node for post-processing MoveNet human pose estimations by adding 3D information.
+
+    This node takes 2D keypoint detections from MoveNet along with depth images and converts them into
+    3D skeleton representations. It handles coordinate transformation, depth filtering, 
+    visualization markers generation, and publishes data in various formats for downstream components.
+
+    Subscribed Topics:
+        /movenet/raw_detections (PersonsPoses): 2D keypoint detections from MoveNet
+        astra_camera/camera/depth/image_raw (Image): Depth image from camera
+        astra_camera/camera/depth/camera_info (CameraInfo): Camera intrinsic parameters
+
+    Published Topics:
+        /human_pose/keypoints3d (PersonsPoses): 3D keypoints with depth information
+        /human_pose/skeleton_markers (MarkerArray): RViz markers for skeleton visualization
+        /people (People): Standard people tracking message format
+        /human_pose/persons_poses (PoseArray): Person positions as pose array
+
+    Parameters:
+        depth_window_size (int, default=3): Window size for depth value averaging
+        keypoint_score_threshold (float, default=0.4): Minimum confidence score to consider a keypoint
+        target_frame (string, default="base_footprint"): Target frame for coordinate transformation
+        depth_outlier_radius (float, default=0.5): Maximum allowed deviation from mean depth in meters
+
+    Processing Pipeline:
+        1. Synchronizes raw detections with depth image
+        2. Projects 2D keypoints to 3D using depth information
+        3. Filters outlier points based on depth consistency
+        4. Transforms coordinates to target frame
+        5. Generates visualization markers and standard message formats
+        6. Publishes all outputs for downstream consumption
+
+    Notes:
+        - The node requires at least 1/3 of the expected keypoints to be valid for a person to be published
+        - Depth outlier filtering helps remove inconsistent depth readings
+        - Skeleton connections follow the standard MoveNet/COCO 17-point skeleton format
+    """
     def __init__(self):
         super().__init__("movenet_postprocessing_node")
         self.get_logger().info("Iniciando nodo de postprocesamiento MoveNet...")

@@ -27,6 +27,34 @@ class OrchestratorState:
 
 
 class OrchestratorNode(Node):
+    """
+    A ROS2 node that orchestrates robot behavior for group detection, navigation, and social interaction.
+
+    This node manages the state machine of a robot that:
+    1. Searches for groups (BUSCANDO state)
+    2. Navigates to detected groups (NAVEGANDO state)
+    3. Engages in social interaction with the group (SOCIALIZANDO state)
+
+    The orchestrator manages lifecycle transitions between different nodes (group detection,
+    navigation, social interaction), handles timeouts, and coordinates the overall robot behavior.
+
+    Parameters:
+        navigation_timeout (float): Maximum time (seconds) allowed for navigation (default: 20.0)
+        social_timeout (float): Maximum time (seconds) allowed for social interaction (default: 30.0)
+        group_waypoint_topic (str): Topic to receive group waypoints (default: "/group_waypoint")
+        navigate_action_name (str): Name of navigation action (default: "navigate_to_pose")
+        social_node_name (str): Name of social interaction node (default: "interaction_manager")
+        group_node_name (str): Name of group detection node (default: "group_waypoint_generator_node")
+        navigation_node_name (str): Name of navigation node (default: "navigation_node")
+
+    State Machine:
+        BUSCANDO: Actively looking for groups, waiting for waypoints
+        NAVEGANDO: Moving toward a detected group
+        SOCIALIZANDO: Engaging in social interaction with the group
+
+    The node manages transitions between these states, activating and deactivating
+    appropriate components as needed, and handling timeouts and error conditions.
+    """
     (STATE_SOCIAL_READY, STATE_SOCIAL_FINISHED, STATE_SOCIAL_ERROR) = range(3)
 
     def __init__(self, executor):

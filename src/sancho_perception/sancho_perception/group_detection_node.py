@@ -21,6 +21,49 @@ def bounding_box_area(points: np.ndarray) -> float:
 
 
 class GroupDetectionNode(LifecycleNode):
+    """
+    A ROS2 lifecycle node that detects groups of people based on spatial clustering.
+
+    This node subscribes to pose arrays containing detected persons, applies DBSCAN clustering
+    to identify groups, and publishes information about detected stable groups. The node
+    implements the ROS2 managed lifecycle pattern (configure, activate, deactivate, cleanup).
+
+    The group detection algorithm works by:
+    1. Receiving person positions via PoseArray messages
+    2. Running DBSCAN clustering to identify potential groups 
+    3. Selecting the largest cluster and calculating its centroid and radius
+    4. Tracking cluster stability over time (position and membership)
+    5. Validating clusters using silhouette score when multiple clusters are present
+    6. Publishing group information when a stable group has been detected for a minimum duration
+    7. Visualizing the group with a marker in RViz
+
+    Parameters:
+        group_distance_threshold (float, default: 1.0): Maximum distance between points in a cluster
+        min_group_duration (float, default: 3.0): Time in seconds a group must be stable before detection
+        group_centroid_tolerance (float, default: 0.5): Maximum allowed movement of cluster centroid
+        check_period (float, default: 0.5): Timer period for checking timeouts
+        dbscan_min_samples (int, default: 2): Minimum samples for DBSCAN clustering
+        detection_timeout (float, default: 2.0): Time after which detection is reset if no updates
+        message_timeout (float, default: 2.0): Time after which state is reset if no messages
+        silhouette_threshold (float, default: 0.3): Minimum silhouette score to consider cluster valid
+        grace_period (float, default: 1.0): Time to maintain group detection during brief absences
+        min_group_radius (float, default: 0.1): Minimum radius of a valid group
+        cluster_history_size (int, default: 10): Size of cluster history buffer
+        cluster_history_required (int, default: 5): Required consecutive stable clusters
+
+    Subscribes:
+        /human_pose/persons_poses (PoseArray): Positions of detected persons
+
+    Publishes:
+        /detected_group (GroupInfo): Information about detected groups
+        /group_marker_array (MarkerArray): Visualization markers for detected groups
+
+    Lifecycle:
+        on_configure: Sets up parameters and publishers
+        on_activate: Creates subscriptions and timers
+        on_deactivate: Cancels timers and destroys subscriptions
+        on_cleanup: Cleans up all resources
+    """
     def __init__(self):
         super().__init__("group_detection_lifecycle")
         self.get_logger().info(

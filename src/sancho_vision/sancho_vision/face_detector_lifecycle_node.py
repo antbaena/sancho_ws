@@ -8,7 +8,6 @@
 - Visualización opcional
 """
 import cv2
-import mediapipe as mp
 import numpy as np
 import rclpy
 from cv_bridge import CvBridge, CvBridgeError
@@ -17,9 +16,54 @@ from rclpy.lifecycle import LifecycleNode, TransitionCallbackReturn
 from rclpy.qos import QoSProfile
 from sancho_msgs.msg import Face, FaceArray
 from sensor_msgs.msg import Image
+import dlib
+import os
+from ament_index_python.packages import get_package_share_directory
+
+package_path = get_package_share_directory('sancho_vision')
 
 
 class FaceDetectorLifecycleNode(LifecycleNode):
+    """
+    FaceDetectorLifecycleNode: A ROS 2 managed lifecycle node for real-time face detection.
+
+    This node subscribes to camera images and publishes detected faces as FaceArray messages.
+    It implements the lifecycle node state machine (configure, activate, deactivate, cleanup)
+    to ensure proper resource management and predictable behavior.
+
+    Features:
+    - Configurable face detection using either dlib's HOG-based detector (fast) or CNN-based detector (more accurate)
+    - Non-maximum suppression for merging overlapping detections
+    - Optional visualization of face detections on images
+    - Configurable downscaling for performance optimization
+    - Rate-limited processing to manage computational load
+
+    Parameters:
+        image_topic (str): Topic name for input camera images
+        detections_topic (str): Topic name for publishing face detections
+        use_cnn (bool): Whether to use CNN-based detector (True) or HOG-based detector (False)
+        cnn_model_path (str): Path to CNN model file (if empty, uses default path)
+        confidence_threshold (float): Minimum confidence threshold for face detections
+        nms_iou_threshold (float): IoU threshold for non-maximum suppression
+        ema_alpha (float): Exponential moving average factor for smoothing detections
+        downscale_factor (float): Factor to downscale images for faster processing
+        visualization (bool): Whether to publish visualization images
+        processing_rate (float): Rate in Hz at which to process images
+        visualization_topic (str): Topic name for publishing visualization images
+
+    Publishers:
+        detections_topic (FaceArray): Publishes detected faces with confidence scores
+        visualization_topic (Image): Publishes images with face detection visualizations (if enabled)
+
+    Subscribers:
+        image_topic (Image): Subscribes to camera images for processing
+
+    Lifecycle Transitions:
+        on_configure: Initializes detector and publishers
+        on_activate: Creates subscribers and starts processing timer
+        on_deactivate: Stops processing and removes subscribers
+        on_cleanup: Cleans up all resources
+    """
     def __init__(self):
         super().__init__("face_detector_lifecycle")
 
@@ -28,7 +72,8 @@ class FaceDetectorLifecycleNode(LifecycleNode):
             parameters=[
                 ("image_topic", "/sancho_camera/image_rect"),
                 ("detections_topic", "/face_detections"),
-                ("use_mediapipe", False),
+                ("use_cnn", False),
+                ("cnn_model_path", ""),
                 ("confidence_threshold", 0.5),
                 ("nms_iou_threshold", 0.3),
                 ("ema_alpha", 0.3),
@@ -44,7 +89,10 @@ class FaceDetectorLifecycleNode(LifecycleNode):
     def on_configure(self, state) -> TransitionCallbackReturn:
         self.get_logger().info("Configurando nodo...")
 
-        self.use_mediapipe = self.get_parameter("use_mediapipe").value
+        self.use_cnn = self.get_parameter("use_cnn").value
+        cnn_override = self.get_parameter("cnn_model_path").value
+        cnn_default = os.path.join(package_path, 'models', 'mmod_human_face_detector.dat')
+        self.cnn_model_path = cnn_override if cnn_override else cnn_default
         self.conf_thresh = self.get_parameter("confidence_threshold").value
         self.nms_iou = self.get_parameter("nms_iou_threshold").value
         self.ema_alpha = self.get_parameter("ema_alpha").value
@@ -52,14 +100,13 @@ class FaceDetectorLifecycleNode(LifecycleNode):
         self.visualization = self.get_parameter("visualization").value
         self.processing_rate = self.get_parameter("processing_rate").value
 
-        if self.use_mediapipe:
-            self.mp_face = mp.solutions.face_detection.FaceDetection(
-                model_selection=1, min_detection_confidence=self.conf_thresh
-            )
-            self.get_logger().info("Detector MediaPipe activado")
+        if self.use_cnn:
+            if not os.path.exists(self.cnn_model_path):
+                self.get_logger().error(f"Modelo CNN no encontrado: {self.cnn_model_path}")
+                return TransitionCallbackReturn.FAILURE
+            self.detector = dlib.cnn_face_detection_model_v1(self.cnn_model_path)
+            self.get_logger().info("Detector CNN de Dlib activado")
         else:
-            import dlib
-
             self.detector = dlib.get_frontal_face_detector()
             self.get_logger().info("Detector Dlib activado")
 

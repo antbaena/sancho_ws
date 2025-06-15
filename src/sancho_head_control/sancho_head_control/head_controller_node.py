@@ -19,6 +19,58 @@ class State(Enum):
 
 
 class HRIHeadNode(Node):
+    """
+    ROS 2 node to control the robot's head for Human-Robot Interaction.
+
+    This node provides functionality to move the robot head in pan and tilt 
+    motions. It operates in two main states:
+    - IDLE: performs random movements within specified limits
+    - TRACKING: moves the head to track a specific target
+
+    The node accepts PoseStamped messages with orientation (as quaternion) 
+    that get converted to pan and tilt angles. It also provides timeout 
+    functionality to return to idle state when tracking is no longer active.
+
+    Parameters:
+    ----------
+    idle_move_min_interval : float
+        Minimum interval (seconds) between random movements in idle state
+    idle_move_max_interval : float
+        Maximum interval (seconds) between random movements in idle state
+    pan_limit : list
+        Min and max values for pan motion [min, max]
+    tilt_limit : list
+        Min and max values for tilt motion [min, max]
+    tolerance : float
+        Angular tolerance to consider a target reached
+    tracking_timeout : float
+        Seconds to wait before returning to idle when no new targets received
+    joint_group_name : str
+        Name of the joint group for control commands
+    pan_joint : str
+        Name of the pan joint in the robot
+    tilt_joint : str
+        Name of the tilt joint in the robot
+    tracking_topic : str
+        Topic name for receiving target poses to track
+
+    Published Topics:
+    ---------------
+    /wxxms/commands/joint_group (JointGroupCommand)
+        Commands to control joint positions
+
+    Subscribed Topics:
+    ---------------
+    /wxxms/joint_states (JointState)
+        Current state of the robot joints
+    [tracking_topic] (PoseStamped)
+        Target pose for the robot head to track
+
+    Services:
+    --------
+    /wxxms/set_operating_modes (OperatingModes)
+        Service to set joint operating modes
+    """
     def __init__(self):
         super().__init__("hri_head_node")
 

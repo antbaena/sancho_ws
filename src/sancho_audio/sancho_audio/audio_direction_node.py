@@ -23,6 +23,35 @@ def compute_angle_from_delay(
 
 
 class SoundAngleDetector(Node):
+    """
+    ROS2 node for sound angle detection using Time Difference of Arrival (TDOA) techniques.
+
+    This node subscribes to Voice Activity Detection (VAD) segments containing stereo audio data,
+    processes the audio to determine the angle of arrival of the sound, and publishes this angle.
+    It supports different TDOA computation methods like Generalized Cross-Correlation (GCC) 
+    or Normalized Cross-Correlation (NCC).
+
+    Parameters:
+    ----------
+    method : str, default='gcc'
+        The TDOA computation method ('gcc' or 'ncc')
+    mic_distance : float, default=0.1225
+        Distance between microphones in meters
+    sample_rate : int, default=48000
+        Audio sample rate in Hz
+    timer_hz : float, default=5.0
+        Frequency at which to process the audio buffer
+
+    Subscribes:
+    ----------
+    /audio/vad_segment : VADSegment
+        Voice activity detection segments containing stereo audio data
+
+    Publishes:
+    ----------
+    /audio/angle : Float32
+        The estimated angle of arrival of the sound in degrees
+    """
     def __init__(self):
         super().__init__("sound_angle_detector")
         # Parameters

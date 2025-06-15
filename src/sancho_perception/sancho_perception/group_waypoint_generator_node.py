@@ -28,6 +28,38 @@ from sancho_msgs.msg import GroupInfo
 
 
 class GroupWaypointGeneratorNode(LifecycleNode):
+    """
+    GroupWaypointGeneratorNode: A ROS 2 lifecycle node that generates navigation waypoints around detected groups.
+
+    This node subscribes to group detection information, calculates appropriate waypoints for a robot to
+    approach the group while maintaining a safe distance, and publishes these waypoints as navigation goals.
+    It also publishes visualization markers for RViz.
+
+    The node follows the managed lifecycle pattern from ROS 2, implementing configure, activate, deactivate,
+    cleanup, and shutdown transitions.
+
+    Parameters:
+        group_topic (string): Topic for subscribing to detected group information
+        waypoint_goal_topic (string): Topic for publishing waypoint goals
+        safety_margin (float): Additional distance from group perimeter for waypoint placement
+        goal_update_threshold (float): Minimum distance change required to publish a new waypoint
+        robot_frame (string): TF frame ID for the robot base
+        tf_lookup_timeout (float): Timeout for TF transformations in seconds
+        goal_history_size (int): Size of waypoint history buffer for filtering
+        waypoint_marker_topic (string): Topic for publishing visualization markers
+        waypoint_marker_lifetime (float): Duration in seconds for marker visibility
+
+    Subscriptions:
+        {group_topic} (GroupInfo): Information about detected groups
+
+    Publications:
+        {waypoint_goal_topic} (PoseStamped): Generated waypoint goal
+        {waypoint_marker_topic} (MarkerArray): Visualization markers for RViz
+
+    The node computes waypoints that position the robot at a safe distance from the group's perimeter,
+    orienting the robot to face the group. It uses a history-based filter to reduce goal thrashing
+    by only publishing significantly different waypoints.
+    """
     def __init__(self):
         super().__init__("group_waypoint_generator_lifecycle")
         self.get_logger().info(

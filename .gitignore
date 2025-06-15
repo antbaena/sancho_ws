@@ -168,3 +168,6 @@ certs/*.pem
 /.vscode
 /python_tests
 .pre-commit-config.yaml
+src/sancho_perception/sancho_perception/usb_cam_bag
+src/sancho_perception/sancho_perception/astra_cam_bag
+usb_cam_bag

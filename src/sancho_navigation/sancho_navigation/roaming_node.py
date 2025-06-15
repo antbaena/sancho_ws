@@ -26,6 +26,46 @@ from tf_transformations import quaternion_from_euler
 
 
 class RoamingNode(Node):
+    """
+    RoamingNode: Autonomous Navigation Node for Robot Exploration
+
+    This ROS2 node implements an autonomous roaming behavior that allows a robot to navigate
+    randomly within an environment while respecting navigation constraints. The node generates
+    random goal poses, validates them by checking path feasibility, and navigates to them using
+    Nav2's action servers.
+
+    Key Features:
+    - Autonomous navigation to randomly generated valid poses
+    - Local window constraint option to keep goals within a certain range of current position
+    - Home position concept with automatic return when the robot exceeds maximum distance
+    - Path validation to ensure goals are reachable and within configured path length limits
+    - Goal history to prevent revisiting recent locations
+    - Configurable parameters for customizing roaming behavior
+
+    The node interfaces with Nav2 through:
+    - NavigateToPose action client for executing navigation
+    - ComputePathToPose action client for path validation
+
+    Parameters:
+        frame_id (string): Reference frame for navigation, default "map"
+        use_local_window (bool): Whether to generate goals within a local window around robot
+        local_range_x (float): X-range of local window in meters
+        local_range_y (float): Y-range of local window in meters
+        max_generate_attempts (int): Maximum attempts for generating valid random poses
+        recent_goal_history (int): Number of recent goals to remember and avoid
+        idle_time_before_new_goal (float): Seconds to wait between goals
+        check_interval (float): Interval in seconds for checking if new goals should be generated
+        max_path_length (float): Maximum acceptable path length in meters
+        compute_path_timeout (float): Timeout for path computation service
+        min_path_length (float): Minimum acceptable path length in meters
+        max_dist_home (float): Maximum distance from home before returning
+
+    Services:
+        set_home: Sets a new home position if it's reachable from current position
+
+    The node begins by initializing a home position based on the robot's starting location
+    and then alternates between random exploration and returning home when necessary.
+    """
     def __init__(self):
         super().__init__("roaming_node")
         self.callback_group = ReentrantCallbackGroup()
