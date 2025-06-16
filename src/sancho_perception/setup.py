@@ -1,6 +1,8 @@
-from setuptools import find_packages, setup
 import os
 from glob import glob
+
+from setuptools import find_packages, setup
+
 package_name = 'sancho_perception'
 
 setup(
@@ -26,6 +28,8 @@ setup(
             'movenet_postprocessing_node = sancho_perception.movenet_postprocessing_node:main',
             'group_detection_node = sancho_perception.group_detection_node:main',
             'group_waypoint_generator_node = sancho_perception.group_waypoint_generator_node:main',
+            'relay_metrics_node = sancho_perception.metrics_node:main',
+            'perception_test = sancho_perception.perception_test:main',
         ],
     },
 )

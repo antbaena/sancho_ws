@@ -4,15 +4,41 @@ import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import JointState
 
+
 class JointStateMerger(Node):
+    """
+    A ROS2 Node that merges joint state messages from two different topics.
+
+    This node subscribes to two JointState topics ('/wxxms/joint_states' and '/joint_states_urdf'),
+    merges their data, and publishes the combined joint states to '/joint_states_merged'.
+    When merging, it preserves joint names and their respective position, velocity, and effort values.
+    If the same joint appears in both messages, it prioritizes non-zero position values.
+
+    Subscriptions:
+        - /wxxms/joint_states (sensor_msgs/JointState): First source of joint states
+        - /joint_states_urdf (sensor_msgs/JointState): Second source of joint states
+
+    Publications:
+        - /joint_states_merged (sensor_msgs/JointState): Combined joint states from both sources
+
+    Parameters:
+        None
+
+    Note:
+        The node publishes merged joint states at 50 Hz regardless of input message rates.
+    """
     def __init__(self):
-        super().__init__('joint_state_merger')
+        super().__init__("joint_state_merger")
         self.joints_1 = JointState()
         self.joints_2 = JointState()
 
-        self.pub = self.create_publisher(JointState, '/joint_states_merged', 10)
-        self.sub1 = self.create_subscription(JointState, '/wxxms/joint_states', self.cb1, 10)
-        self.sub2 = self.create_subscription(JointState, '/joint_states_urdf', self.cb2, 10)
+        self.pub = self.create_publisher(JointState, "/joint_states_merged", 10)
+        self.sub1 = self.create_subscription(
+            JointState, "/wxxms/joint_states", self.cb1, 10
+        )
+        self.sub2 = self.create_subscription(
+            JointState, "/joint_states_urdf", self.cb2, 10
+        )
 
         self.timer = self.create_timer(0.02, self.publish_merged)  # 50 Hz
 
@@ -52,6 +78,7 @@ class JointStateMerger(Node):
             merged.effort.append(eff)
 
         self.pub.publish(merged)
+
 
 def main(args=None):
     rclpy.init(args=args)

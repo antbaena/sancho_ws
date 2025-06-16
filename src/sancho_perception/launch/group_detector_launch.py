@@ -6,6 +6,7 @@ from launch.actions import DeclareLaunchArgument, GroupAction
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import LifecycleNode, Node
 
+
 def generate_launch_description():
     # Launch arguments
     use_xterm = LaunchConfiguration('use_xterm')

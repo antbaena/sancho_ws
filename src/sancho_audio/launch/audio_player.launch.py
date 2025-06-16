@@ -2,9 +2,13 @@
 import os
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, ExecuteProcess, TimerAction, GroupAction
+from launch.actions import (
+    DeclareLaunchArgument,
+    GroupAction,
+)
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import LifecycleNode, Node
+
 
 def generate_launch_description():
     # Parámetros de lanzamiento
@@ -57,25 +61,27 @@ def generate_launch_description():
         parameters=[
             {
                 'node_names': [
-                    audio_node_name,            
+                    audio_node_name,
                 ]
             }
         ],
     )
 
-
-    return LaunchDescription([
-        DeclareLaunchArgument(
-            'prefix',
-            default_value='xterm -hold -e' if os.environ.get('DISPLAY') else '',
-            description='Prefijo para lanzar nodos en terminal'
-        ),
-
-        GroupAction([
-            audio_player_node,
-            microphone_publisher_node,
-            vad_node,
-            sound_direction_node,
-            configurator_node
-        ]),
-    ])
+    return LaunchDescription(
+        [
+            DeclareLaunchArgument(
+                'prefix',
+                default_value='xterm -hold -e' if os.environ.get('DISPLAY') else '',
+                description='Prefijo para lanzar nodos en terminal',
+            ),
+            GroupAction(
+                [
+                    audio_player_node,
+                    microphone_publisher_node,
+                    vad_node,
+                    sound_direction_node,
+                    configurator_node,
+                ]
+            ),
+        ]
+    )
