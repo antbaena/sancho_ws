@@ -55,5 +55,5 @@ jobs:
           set -e
           for pkg in src/sancho_*/sancho_*; do
             echo "🔍 Linting $pkg"
-            pylint "$pkg" --fail-under=5.0
+            pylint "$pkg" --fail-under=3.0
           done

@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Nodo ROS2 Lifecycle para detección facial (ROS2 Humble)
 - Uso de LifecycleNode
-- Elección entre Dlib y MediaPipe
 - Procesamiento asíncrono con ThreadPoolExecutor
 - Suavizado EMA de bounding boxes
 - Umbral de confianza y NMS configurable
@@ -10,6 +9,7 @@
 import os
 
 import cv2
+import dlib
 import numpy as np
 import rclpy
 from ament_index_python.packages import get_package_share_directory
@@ -17,12 +17,10 @@ from cv_bridge import CvBridge, CvBridgeError
 from geometry_msgs.msg import Point
 from rclpy.lifecycle import LifecycleNode, TransitionCallbackReturn
 from rclpy.qos import QoSProfile
+from sancho_msgs.msg import Face, FaceArray
 from sensor_msgs.msg import Image
 
-import dlib
-from sancho_msgs.msg import Face, FaceArray
-
-package_path = get_package_share_directory('sancho_vision')
+package_path = get_package_share_directory("sancho_vision")
 
 
 class FaceDetectorLifecycleNode(LifecycleNode):
@@ -95,7 +93,9 @@ class FaceDetectorLifecycleNode(LifecycleNode):
 
         self.use_cnn = self.get_parameter("use_cnn").value
         cnn_override = self.get_parameter("cnn_model_path").value
-        cnn_default = os.path.join(package_path, 'models', 'mmod_human_face_detector.dat')
+        cnn_default = os.path.join(
+            package_path, "models", "mmod_human_face_detector.dat"
+        )
         self.cnn_model_path = cnn_override if cnn_override else cnn_default
         self.conf_thresh = self.get_parameter("confidence_threshold").value
         self.nms_iou = self.get_parameter("nms_iou_threshold").value
@@ -106,7 +106,9 @@ class FaceDetectorLifecycleNode(LifecycleNode):
 
         if self.use_cnn:
             if not os.path.exists(self.cnn_model_path):
-                self.get_logger().error(f"Modelo CNN no encontrado: {self.cnn_model_path}")
+                self.get_logger().error(
+                    f"Modelo CNN no encontrado: {self.cnn_model_path}"
+                )
                 return TransitionCallbackReturn.FAILURE
             self.detector = dlib.cnn_face_detection_model_v1(self.cnn_model_path)
             self.get_logger().info("Detector CNN de Dlib activado")
@@ -181,29 +183,33 @@ class FaceDetectorLifecycleNode(LifecycleNode):
         scale = cv_img.shape[1] / small.shape[1]
 
         boxes, scores = [], []
-        if self.use_mediapipe:
-            results = self.mp_face.process(cv2.cvtColor(small, cv2.COLOR_BGR2RGB))
-            if results.detections:
-                for det in results.detections:
-                    bbox = det.location_data.relative_bounding_box
-                    x1 = int(bbox.xmin * small.shape[1])
-                    y1 = int(bbox.ymin * small.shape[0])
-                    x2 = int((bbox.xmin + bbox.width) * small.shape[1])
-                    y2 = int((bbox.ymin + bbox.height) * small.shape[0])
-                    boxes.append([x1 * scale, y1 * scale, x2 * scale, y2 * scale])
-                    scores.append(det.score[0])
-        else:
-            dets = self.detector(small, 0)
+        # Detección con CNN o HOG
+        if self.use_cnn:
+            dets = self.detector(small, 1)
             for d in dets:
+                rect = d.rect
+                conf = d.confidence
                 boxes.append(
                     [
-                        d.left() * scale,
-                        d.top() * scale,
-                        d.right() * scale,
-                        d.bottom() * scale,
+                        rect.left() * scale,
+                        rect.top() * scale,
+                        rect.right() * scale,
+                        rect.bottom() * scale,
                     ]
                 )
-                scores.append(1.0)
+                scores.append(conf)
+        else:
+            dets, confidences, _ = self.detector.run(small, 0)
+            for rect, conf in zip(dets, confidences, strict=False):
+                boxes.append(
+                    [
+                        rect.left() * scale,
+                        rect.top() * scale,
+                        rect.right() * scale,
+                        rect.bottom() * scale,
+                    ]
+                )
+                scores.append(conf)
 
         idxs = cv2.dnn.NMSBoxes(boxes, scores, self.conf_thresh, self.nms_iou)
         filtered, filtered_scores = [], []
