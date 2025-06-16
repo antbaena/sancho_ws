@@ -30,8 +30,8 @@ amcl:
     initial_pose_x: 0.0
     initial_pose_y: 0.0
     initial_pose_a: 0.0
-    initial_cov_xx: 0.25
-    initial_cov_yy: 0.25
+    initial_cov_xx: 0.05
+    initial_cov_yy: 0.05
     initial_cov_aa: 0.06853
 
 # =====================
@@ -442,7 +442,7 @@ local_costmap:
         - "voxel_layer"
         - "obstacle_layer"
         - "inflation_layer"
-        # - "social_layer"
+        - "social_layer"
 
       voxel_layer:
         plugin: "nav2_costmap_2d::VoxelLayer"
@@ -514,7 +514,7 @@ local_costmap:
       #   obstacle_cost: 254
       #   person_topic: "/human_pose/persons_poses"
       #   transform_tolerance: 0.1
-      
+              
       social_layer:
         plugin: "nav2_social_costmap_plugin::SocialLayer"
         people_topic: "/people"
@@ -525,13 +525,14 @@ local_costmap:
         use_passing: False
         use_vel_factor: False
         speed_factor_multiplier: 5.0
-        covariance_front_height: 0.4
-        covariance_front_width: 0.25
-        covariance_rear_height: 0.25
-        covariance_rear_width: 0.25
-        covariance_right_height: 0.3
-        covariance_right_width: 0.2
-        covariance_when_still: 0.25
+        covariance_front_height: 0.05
+        covariance_front_width: 0.08
+        covariance_rear_height: 0.05
+        covariance_rear_width: 0.08
+        covariance_right_height: 0.05
+        covariance_right_width: 0.08
+        covariance_when_still: 0.40  # o podrías poner 0.65 como promedio
+
 # =====================
 # BEHAVIOR SERVER
 # =====================
