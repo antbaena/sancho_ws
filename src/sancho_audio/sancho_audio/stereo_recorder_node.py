@@ -4,7 +4,6 @@ import wave
 import numpy as np
 import rclpy
 from rclpy.node import Node
-
 from sancho_msgs.msg import AudioData
 
 
@@ -14,7 +13,8 @@ class QuickChecker(Node):
     This node subscribes to audio data messages, accumulates them until a specified duration
     is reached, then saves separate WAV files for each audio channel.
 
-    Attributes:
+    Attributes
+    ----------
         sub (Subscription): Subscription to the audio data topic.
         duration_s (float): Duration to record in seconds.
         frames_needed (int): Total number of audio frames needed to reach the desired duration.
@@ -66,7 +66,6 @@ class QuickChecker(Node):
             f"Acumulados {self.total_frames}/{self.frames_needed} frames"
         )
 
-        # ¿Tenemos ya suficiente?
         if self.total_frames >= self.frames_needed:
             self.get_logger().info("Grabación 0.5 s lista → escribiendo test_ch?.wav")
             ch1 = np.concatenate(self.buf_ch1)[: self.frames_needed]

@@ -21,13 +21,13 @@ class State(Enum):
 class HRIHeadNode(Node):
     """ROS 2 node to control the robot's head for Human-Robot Interaction.
 
-    This node provides functionality to move the robot head in pan and tilt 
+    This node provides functionality to move the robot head in pan and tilt
     motions. It operates in two main states:
     - IDLE: performs random movements within specified limits
     - TRACKING: moves the head to track a specific target
 
-    The node accepts PoseStamped messages with orientation (as quaternion) 
-    that get converted to pan and tilt angles. It also provides timeout 
+    The node accepts PoseStamped messages with orientation (as quaternion)
+    that get converted to pan and tilt angles. It also provides timeout
     functionality to return to idle state when tracking is no longer active.
 
     Parameters
@@ -137,7 +137,7 @@ class HRIHeadNode(Node):
         req.name = self.joint_group
         req.mode = "position"
         req.profile_type = "time"
-        req.profile_velocity = 2400  # Tiempò que tarda en llegar a la posición
+        req.profile_velocity = 2400  # Tiempo que tarda en llegar a la posición
         req.profile_acceleration = (
             300  # TIempo que tarda en llegar a la aceleración maxima
         )
