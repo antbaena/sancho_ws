@@ -442,7 +442,7 @@ local_costmap:
         - "voxel_layer"
         - "obstacle_layer"
         - "inflation_layer"
-        - "social_layer"
+        # - "social_layer"
 
       voxel_layer:
         plugin: "nav2_costmap_2d::VoxelLayer"
