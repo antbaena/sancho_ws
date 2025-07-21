@@ -23,6 +23,8 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/AudioData.msg"
   "msg/BoolStamped.msg"
   "msg/VADSegment.msg"
+  "msg/PersonFeature.msg"
+  "msg/PersonFeatureArray.msg"
   "srv/SetHome.srv"
   "srv/GetNoiseFloor.srv"
   "srv/SocialState.srv"
