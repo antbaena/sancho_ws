@@ -12,14 +12,13 @@ from geometry_msgs.msg import Pose, PoseArray, Quaternion
 from people_msgs.msg import People, Person
 from rclpy.duration import Duration
 from rclpy.lifecycle import LifecycleNode, LifecycleState, TransitionCallbackReturn
+from sancho_msgs.msg import PersonPose, PersonsPoses
 from sensor_msgs.msg import CameraInfo, Image
 from std_msgs.msg import Header
 from tf2_ros import (
     Buffer,
     TransformListener,
 )
-
-from sancho_msgs.msg import PersonPose, PersonsPoses
 
 random.seed(42)
 # Opcional: semilla para reproducibilidad
@@ -34,7 +33,7 @@ class MoveNetPostprocessingNode(LifecycleNode):
     """ROS 2 Lifecycle Node for post-processing MoveNet human pose estimations by adding 3D information.
 
     This node takes 2D keypoint detections from MoveNet along with depth images and converts them into
-    3D skeleton representations. It handles coordinate transformation, depth filtering, 
+    3D skeleton representations. It handles coordinate transformation, depth filtering,
     visualization markers generation, and publishes data in various formats for downstream components.
 
     Subscribed Topics:
@@ -322,7 +321,9 @@ class MoveNetPostprocessingNode(LifecycleNode):
             # 4) Batch-transform de cada persona
             for person in transformed_msg.persons:
                 # a) Plano Nx3 desde la lista plana de 51 floats
-                pts = np.array(person.keypoints3d, dtype=float).reshape(-1, 3)
+                pts = np.array(
+                    [[p.x, p.y, p.z] for p in person.keypoints3d], dtype=float
+                ).reshape(-1, 3)
 
                 # b) Máscara de puntos válidos
                 valid_mask = ~np.all(pts == 0.0, axis=1)
@@ -343,7 +344,9 @@ class MoveNetPostprocessingNode(LifecycleNode):
                 pts_transformed[valid_mask] = pts_map_all[valid_mask]
 
                 # f) Volver a lista plana
-                person.keypoints3d = pts_transformed.flatten().tolist()
+                person.keypoints3d = [
+                    Point(x=pt[0], y=pt[1], z=pt[2]) for pt in pts_transformed
+                ]
 
                 # g) Actualizar frame_id interno si existe
                 if hasattr(person, "header"):
@@ -380,16 +383,12 @@ class MoveNetPostprocessingNode(LifecycleNode):
             pts_list = [None] * self.expected_kpts
             depth_list = [None] * self.expected_kpts
 
-            # Extrae keypoints 2D y scores
-            keypoints2d = [
-                (int(person.keypoints[i]), int(person.keypoints[i + 1]))
-                for i in range(0, len(person.keypoints), 2)
-            ]
-
             # Recorre cada keypoint indexado
-            for idx, ((x, y), score) in enumerate(
-                zip(keypoints2d, person.scores, strict=False)
+            for idx, (kp, score_raw) in enumerate(
+                zip(person.keypoints, person.scores, strict=False)
             ):
+                x, y = int(kp.x), int(kp.y)
+                score = score_raw.data
                 if (
                     score > self.keypoint_score_threshold
                     and 0 <= x < depth_image.shape[1]
@@ -418,12 +417,14 @@ class MoveNetPostprocessingNode(LifecycleNode):
                         depth_list[i] = None
 
             # Reconstruye keypoints3d plano (ceros donde no haya pt)
-            flat_kpts3d = []
-            for pt in pts_list:
-                if pt is not None:
-                    flat_kpts3d.extend([pt[0], pt[1], pt[2]])
-                else:
-                    flat_kpts3d.extend([0.0, 0.0, 0.0])
+            flat_kpts3d = [
+                (
+                    Point(x=pt[0], y=pt[1], z=pt[2])
+                    if pt is not None
+                    else Point(x=0.0, y=0.0, z=0.0)
+                )
+                for pt in pts_list
+            ]
 
             # Comprueba ahora cuántos puntos quedan
             valid_count = sum(1 for pt in pts_list if pt is not None)
@@ -459,11 +460,9 @@ class MoveNetPostprocessingNode(LifecycleNode):
                 continue
 
             points_3d = {
-                idx: (float(x), float(y), float(z))
-                for idx, (x, y, z) in enumerate(
-                    zip(*[iter(keypoints_3d)] * 3, strict=False)
-                )
-                if (float(x), float(y), float(z)) != (0.0, 0.0, 0.0)
+                idx: (float(p.x), float(p.y), float(p.z))
+                for idx, p in enumerate(keypoints_3d)
+                if (p.x, p.y, p.z) != (0.0, 0.0, 0.0)
             }
             # self.get_logger().info(f"Profundidad de cada punto de la persona {person.id}: {[points_3d[idx][2] for idx in points_3d]}")
 
@@ -544,19 +543,19 @@ class MoveNetPostprocessingNode(LifecycleNode):
             if person.avg_depth > 1.0:
                 p = Person()
                 p.name = f"person_{person.id}"
-                coords = np.array(person.keypoints3d).reshape(-1, 3)
-                valid = coords[(coords != 0.0).all(axis=1)]
-                if len(valid):
-                    x, y, z = valid.mean(axis=0)
-                else:
+                coords = np.array(
+                    [[kp.x, kp.y, kp.z] for kp in person.keypoints3d], dtype=float
+                )
+                valid = coords[~np.all(coords == 0.0, axis=1)]
+                if len(valid) == 0:
                     continue
+
+                x, y, z = valid.mean(axis=0)
                 if x == 0.0 and y == 0.0 and z == 0.0:
                     continue
-                p.position = Point(
-                    x=float(person.keypoints3d[0]),
-                    y=float(person.keypoints3d[1]),
-                    z=float(person.keypoints3d[2]),
-                )
+
+                p.position = Point(x=x, y=y, z=z)
+
                 if (
                     len(coords) > 6
                     and not np.all(coords[5] == 0.0)

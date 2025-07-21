@@ -7,11 +7,10 @@ from geometry_msgs.msg import Point, PoseArray, Quaternion
 from rclpy.duration import Duration
 from rclpy.lifecycle import LifecycleNode, LifecycleState, TransitionCallbackReturn
 from rclpy.qos import QoSProfile
+from sancho_msgs.msg import GroupInfo
 from sklearn.cluster import DBSCAN
 from sklearn.metrics import silhouette_score
 from visualization_msgs.msg import Marker, MarkerArray
-
-from sancho_msgs.msg import GroupInfo
 
 
 def bounding_box_area(points: np.ndarray) -> float:
@@ -30,7 +29,7 @@ class GroupDetectionNode(LifecycleNode):
 
     The group detection algorithm works by:
     1. Receiving person positions via PoseArray messages
-    2. Running DBSCAN clustering to identify potential groups 
+    2. Running DBSCAN clustering to identify potential groups
     3. Selecting the largest cluster and calculating its centroid and radius
     4. Tracking cluster stability over time (position and membership)
     5. Validating clusters using silhouette score when multiple clusters are present
@@ -75,7 +74,7 @@ class GroupDetectionNode(LifecycleNode):
 
         # Declarar parámetros con valores por defecto
         self.declare_parameter("group_distance_threshold", 1.0)
-        self.declare_parameter("min_group_duration", 3.0)
+        self.declare_parameter("min_group_duration", 1.0)
         self.declare_parameter("group_centroid_tolerance", 0.5)
         self.declare_parameter("check_period", 0.5)
         self.declare_parameter("dbscan_min_samples", 2)
@@ -85,7 +84,7 @@ class GroupDetectionNode(LifecycleNode):
         self.declare_parameter("grace_period", 1.0)
         self.declare_parameter("min_group_radius", 0.1)
         self.declare_parameter("cluster_history_size", 10)
-        self.declare_parameter("cluster_history_required", 5)
+        self.declare_parameter("cluster_history_required", 2)
 
         # Publishers y subscriptores (se crearán en on_configure/on_activate)
         self.group_pub = None

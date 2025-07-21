@@ -9,14 +9,14 @@ import numpy as np
 import rclpy
 import tf2_ros
 from cv_bridge import CvBridge, CvBridgeError
+from geometry_msgs.msg import Point
 from rcl_interfaces.msg import SetParametersResult
 from rclpy.lifecycle import LifecycleNode, LifecycleState, TransitionCallbackReturn
 from rclpy.qos import QoSProfile
+from sancho_msgs.msg import PersonPose, PersonsPoses
 from sensor_msgs.msg import Image
 from std_msgs.msg import Float32
 from visualization_msgs.msg import MarkerArray
-
-from sancho_msgs.msg import PersonPose, PersonsPoses
 
 from .movenet_utils import load_model, process_detections, run_inference_on_image
 
@@ -302,9 +302,9 @@ class MoveNetInferenceNode(LifecycleNode):
             person = PersonPose()
             person.header = msg.header
             person.id = pid
-            person.keypoints = [float(c) for p in kpts for c in p]
-            person.scores = [float(s) for s in scores]
-            person.keypoints3d = [0.0] * (len(kpts) * 3)
+            person.keypoints = [Point(x=p[0], y=p[1], z=0.0) for p in kpts]
+            person.keypoints3d = [Point(x=0.0, y=0.0, z=0.0) for _ in kpts]
+            person.scores = [Float32(data=float(s)) for s in scores]
             person.avg_depth = 0.0
             pp_msg.persons.append(person)
         self.detections_pub.publish(pp_msg)
