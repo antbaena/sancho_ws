@@ -363,12 +363,20 @@ class MoveNetPostprocessingNode(LifecycleNode):
         pose_array_msg.header = persons_3d_msg.header
 
         for person in persons_3d_msg.persons:
-            x, y, z = person.keypoints3d[0:3]
-            if x == 0.0 and y == 0.0 and z == 0.0:
+            first_kp = person.keypoints3d[0]
+            if (
+                first_kp.x == 0.0
+                and first_kp.y == 0.0
+                and first_kp.z == 0.0
+            ):
                 continue  # skip invalid
 
             pose = Pose()
-            pose.position = Point(x=float(x), y=float(y), z=float(z))
+            pose.position = Point(
+                x=float(first_kp.x),
+                y=float(first_kp.y),
+                z=float(first_kp.z),
+            )
             pose.orientation = Quaternion(x=0.0, y=0.0, z=0.0, w=1.0)
             pose_array_msg.poses.append(pose)
 
@@ -453,7 +461,7 @@ class MoveNetPostprocessingNode(LifecycleNode):
 
         for person in persons_3d_msg.persons:
             keypoints_3d = person.keypoints3d
-            if len(keypoints_3d) != self.expected_kpts * 3:
+            if len(keypoints_3d) != self.expected_kpts:
                 self.get_logger().debug(
                     f"Persona {person.id}: número de keypoints 3D inesperado."
                 )
