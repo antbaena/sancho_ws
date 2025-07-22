@@ -304,7 +304,7 @@ class MoveNetInferenceNode(LifecycleNode):
             person.id = pid
             person.keypoints = [Point(x=p[0], y=p[1], z=0.0) for p in kpts]
             person.keypoints3d = [Point(x=0.0, y=0.0, z=0.0) for _ in kpts]
-            person.scores = [Float32(data=float(s)) for s in scores]
+            person.scores = [float(s) for s in scores]
             person.avg_depth = 0.0
             pp_msg.persons.append(person)
         self.detections_pub.publish(pp_msg)
