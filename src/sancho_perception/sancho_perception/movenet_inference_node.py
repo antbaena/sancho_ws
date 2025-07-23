@@ -302,7 +302,7 @@ class MoveNetInferenceNode(LifecycleNode):
             person = PersonPose()
             person.header = msg.header
             person.id = pid
-            person.keypoints = [Point(x=p[0], y=p[1], z=0.0) for p in kpts]
+            person.keypoints = [Point(x=float(p[0]), y=float(p[1]), z=0.0) for p in kpts]
             person.keypoints3d = [Point(x=0.0, y=0.0, z=0.0) for _ in kpts]
             person.scores = [float(s) for s in scores]
             person.avg_depth = 0.0

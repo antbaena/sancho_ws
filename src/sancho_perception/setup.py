@@ -30,6 +30,8 @@ setup(
             'group_waypoint_generator_node = sancho_perception.group_waypoint_generator_node:main',
             'relay_metrics_node = sancho_perception.metrics_node:main',
             'perception_test = sancho_perception.perception_test:main',
+            'person_tracker_node = sancho_perception.person_tracker_node:main',
+            'person_feature_extractor_node = sancho_perception.person_feature_extractor_node:main'
         ],
     },
 )

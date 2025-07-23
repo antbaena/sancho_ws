@@ -23,7 +23,7 @@ class PersonTrackerLifecycle(LifecycleNode):
         self.declare_parameter('margin_px', 30)
         self.declare_parameter('reid_model', 'osnet_x1_0')
         self.declare_parameter('device', 'cpu')
-        self.declare_parameter('tracking_frame', 'map')
+        self.declare_parameter('tracking_frame', 'base_link')
 
         # Subscribers sincronizados
         self.image_sub = None
@@ -68,12 +68,11 @@ class PersonTrackerLifecycle(LifecycleNode):
         self.tf_buffer = tf2_ros.Buffer()
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer, self)
         # Subscripciones sincronizadas
-        self.image_sub = message_filters.Subscriber(self, Image, '/camera/image_raw')
+        self.image_sub = message_filters.Subscriber(self, Image, '/astra_camera/camera/color/image_raw')
         self.kp3d_sub = message_filters.Subscriber(self, PersonsPoses, '/human_pose/keypoints3d')
         self.ts = message_filters.ApproximateTimeSynchronizer(
             [self.image_sub, self.kp3d_sub], queue_size=10, slop=0.1)
         self.ts.registerCallback(self.callback)
-        self.feature_pub.on_activate()
         self.get_logger().info('Activado extractor de características')
         return super().on_activate(state)
 
@@ -91,7 +90,7 @@ class PersonTrackerLifecycle(LifecycleNode):
             pts3d = np.array([[p.x, p.y, p.z] for p in person.keypoints3d], dtype=np.float32)
 
             # Extraer scores como array plano de floats
-            scores = np.array([s.data for s in person.scores], dtype=np.float32)
+            scores = np.array([s for s in person.scores], dtype=np.float32)
             
             valid = scores > 0.2
             pts3d = pts3d[valid]
@@ -139,6 +138,7 @@ class PersonTrackerLifecycle(LifecycleNode):
 
         if arr.features:
             self.feature_pub.publish(arr)
+        self.get_logger().info(f'Publicadas {len(arr.features)} características de personas')
 
     def on_deactivate(self, state):
         self.ts = None

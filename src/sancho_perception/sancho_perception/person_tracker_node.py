@@ -3,12 +3,13 @@ from rclpy.lifecycle import LifecycleNode
 from rclpy.qos import QoSProfile
 from geometry_msgs.msg import PoseStamped
 from visualization_msgs.msg import Marker, MarkerArray
-from person_tracker_msgs.msg import PersonFeature, PersonsFeatureArray
+from sancho_msgs.msg import PersonFeature, PersonsFeatureArray
 import numpy as np
 from scipy.optimize import linear_sum_assignment
 from filterpy.kalman import KalmanFilter
 from collections import deque
 import tf2_ros
+from rclpy.duration import Duration
 
 class Track:
     def __init__(self, track_id, initial_pos, initial_emb, kf_config, history_len):
@@ -87,6 +88,8 @@ class PersonTrackerKFNode(LifecycleNode):
         self.marker_pub = None
         self.follow_pub = None
 
+        self.get_logger().info('Initialized KF tracker node')
+
     def on_configure(self, state):
         # Read parameters
         self.motion_weight = self.get_parameter('motion_weight').value
@@ -106,11 +109,7 @@ class PersonTrackerKFNode(LifecycleNode):
         self.world_frame = self.get_parameter('world_frame').value
 
         qos = QoSProfile(depth=10)
-        self.sub = self.create_lifecycle_subscription(
-            PersonsFeatureArray,
-            '/human_pose/person_features',
-            self.feature_callback,
-            qos)
+
         self.marker_pub = self.create_lifecycle_publisher(
             MarkerArray, '/person_marker_array', qos)
         self.follow_pub = self.create_lifecycle_publisher(
@@ -122,12 +121,16 @@ class PersonTrackerKFNode(LifecycleNode):
         return super().on_configure(state)
 
     def on_activate(self, state):
-        self.marker_pub.on_activate()
-        self.follow_pub.on_activate()
+        self.sub = self.create_subscription(
+            PersonsFeatureArray,
+            '/human_pose/person_features',
+            self.feature_callback,
+            10)
         self.get_logger().info('Activated KF tracker')
         return super().on_activate(state)
 
     def feature_callback(self, msg: PersonsFeatureArray):
+
         # Predict all tracks
         for tr in self.tracks.values():
             tr.predict()
@@ -171,15 +174,23 @@ class PersonTrackerKFNode(LifecycleNode):
         for i, tr in enumerate(track_list):
             for j in range(M):
                 motion_dist = np.linalg.norm(tr.current_position - det_pos[j])
-                emb_dist = 1 - np.dot(tr.average_embedding, det_emb[j]) / (
-                    np.linalg.norm(tr.average_embedding) * np.linalg.norm(det_emb[j]) + 1e-6)
-                cost[i, j] = self.motion_weight * motion_dist + self.appearance_weight * emb_dist
+                norm_a = np.linalg.norm(tr.average_embedding)
+                norm_b = np.linalg.norm(det_emb[j])
+                if norm_a < 1e-6 or norm_b < 1e-6:
+                    emb_dist = 1.0  # max dissimilarity
+                else:
+                    emb_dist = 1 - np.dot(tr.average_embedding, det_emb[j]) / (norm_a * norm_b) # cosine similarity
+                cost[i, j] = self.motion_weight * motion_dist + self.appearance_weight * emb_dist # hungarian algorithm expects
 
         # Assignment
         if N and M:
+            if not np.all(np.isfinite(cost)):
+                self.get_logger().error(f"Invalid entries in cost matrix:\n{cost}")
+                return  # Or handle accordingly
             row_ind, col_ind = linear_sum_assignment(cost)
         else:
             row_ind, col_ind = np.array([], int), np.array([], int)
+
 
         matched_tracks, matched_dets = set(), set()
         for r, c in zip(row_ind, col_ind):
@@ -210,6 +221,7 @@ class PersonTrackerKFNode(LifecycleNode):
 
         # Publish markers
         m_arr = MarkerArray()
+        lifetime = Duration(seconds=0.5).to_msg()
         for tr in self.tracks.values():
             m = Marker(header=msg.header,
                        ns='person_tracker',
@@ -221,6 +233,7 @@ class PersonTrackerKFNode(LifecycleNode):
             m.scale.x = m.scale.y = m.scale.z = 0.3
             m.color.a = 1.0
             m.color.r, m.color.g, m.color.b = 0.0, 1.0, 0.0
+            m.lifetime = lifetime
             m_arr.markers.append(m)
         self.marker_pub.publish(m_arr)
 
@@ -233,6 +246,8 @@ class PersonTrackerKFNode(LifecycleNode):
             goal.pose.position.y = tr.current_position[1]
             goal.pose.orientation.w = 1.0
             self.follow_pub.publish(goal)
+            self.get_logger().info(
+                f'Following target {self.target_id} at position {goal.pose.position.x}, {goal.pose.position.y}')
 
     def on_deactivate(self, state):
         self.get_logger().info('Deactivated KF tracker')

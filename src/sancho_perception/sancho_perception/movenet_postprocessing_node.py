@@ -356,7 +356,7 @@ class MoveNetPostprocessingNode(LifecycleNode):
 
         except Exception as e:
             self.get_logger().error(f"Error al transformar detecciones: {e}")
-            raise
+            
 
     def _generar_pose_array(self, persons_3d_msg):
         pose_array_msg = PoseArray()
@@ -392,11 +392,10 @@ class MoveNetPostprocessingNode(LifecycleNode):
             depth_list = [None] * self.expected_kpts
 
             # Recorre cada keypoint indexado
-            for idx, (kp, score_raw) in enumerate(
+            for idx, (kp, score) in enumerate(
                 zip(person.keypoints, person.scores, strict=False)
             ):
                 x, y = int(kp.x), int(kp.y)
-                score = score_raw.data
                 if (
                     score > self.keypoint_score_threshold
                     and 0 <= x < depth_image.shape[1]
